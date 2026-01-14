@@ -1,0 +1,284 @@
+/* src/styles/App.css - VERSION ULTIME */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&display=swap');
+
+/* --- 1. RESET & BASE --- */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #050505;
+  color: #ededed;
+  font-family: 'Inter', Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  cursor: none; /* Curseur caché par défaut */
+}
+
+::-webkit-scrollbar { width: 0px; background: transparent; }
+a, button, input, textarea { cursor: none !important; }
+
+/* --- 2. STRUCTURE --- */
+.app-container {
+  display: flex; flex-direction: column; min-height: 100vh; position: relative; z-index: 1;
+}
+.content-wrapper { max-width: 1100px; margin: 0 auto; width: 100%; }
+.small-width { max-width: 600px; }
+.section-padding { padding: 150px 40px; }
+
+.section-title {
+  font-size: 0.75rem; font-weight: 600; letter-spacing: 3px; color: #555;
+  margin-bottom: 60px; display: inline-block; border-bottom: 1px solid #333;
+  padding-bottom: 5px; text-transform: uppercase;
+}
+
+/* --- 3. GRAIN ANIMÉ (NOISE) --- */
+.noise-overlay {
+  position: fixed; top: -50%; left: -50%; width: 200%; height: 200%;
+  background: transparent url('http://assets.iceable.com/img/noise-transparent.png') repeat 0 0;
+  animation: bg-animation .2s infinite; opacity: 0.05; pointer-events: none; z-index: 90;
+}
+@keyframes bg-animation {
+    0% { transform: translate(0,0) }
+    10% { transform: translate(-5%,-5%) }
+    20% { transform: translate(-10%,5%) }
+    30% { transform: translate(5%,-10%) }
+    40% { transform: translate(-5%,15%) }
+    50% { transform: translate(-10%,5%) }
+    60% { transform: translate(15%,0) }
+    70% { transform: translate(0,10%) }
+    80% { transform: translate(-15%,0) }
+    90% { transform: translate(10%,5%) }
+    100% { transform: translate(5%,0) }
+}
+
+/* --- 4. CUSTOM CURSOR --- */
+.custom-cursor {
+  position: fixed; width: 20px; height: 20px; border: 1px solid white; border-radius: 50%;
+  pointer-events: none; z-index: 9999; transform: translate(-50%, -50%);
+  transition: width 0.2s, height 0.2s, background-color 0.2s; mix-blend-mode: difference;
+}
+.custom-cursor.hovered { width: 50px; height: 50px; background-color: white; opacity: 0.5; }
+
+/* --- 5. NAVBAR (CORRIGÉE & BLANCHE) --- */
+.navbar {
+  position: fixed; top: 0; width: 100%;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 30px 50px; z-index: 100;
+  background: transparent; /* Pas de fond gris */
+  color: #ffffff; /* BLANC FORCÉ */
+}
+
+.nav-brand { font-weight: 700; font-size: 1.1rem; letter-spacing: -0.5px; }
+
+/* Alignement des liens magnétiques */
+.nav-links {
+  display: flex;
+  gap: 30px;
+  align-items: center;
+}
+
+/* Style des liens */
+.nav-links a {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 10px;
+  display: block;
+  position: relative;
+  text-decoration: none;
+  color: #ffffff !important; /* Blanc forcé */
+}
+
+/* Ligne animée sous le lien */
+.nav-links a::after {
+  content: '';
+  position: absolute;
+  bottom: 5px;
+  left: 10px; /* Aligné avec le texte (padding) */
+  width: 0%;
+  height: 2px; /* Un peu plus épais pour être visible */
+  background-color: #ffffff;
+  transition: width 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+/* Au survol : la ligne s'étend */
+.nav-links a:hover::after {
+  width: calc(100% - 20px);
+}
+
+/* --- 6. HERO & LOGO --- */
+.hero {
+  height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative;
+}
+.main-logo {
+  width: 400px; max-width: 80vw; height: auto; filter: drop-shadow(0 0 30px rgba(255,255,255,0.05));
+}
+.main-logo:hover { animation: glitch-anim 0.3s infinite; }
+@keyframes glitch-anim {
+  0% { transform: translate(0) } 20% { transform: translate(-2px, 2px) } 40% { transform: translate(-2px, -2px) } 60% { transform: translate(2px, 2px) } 80% { transform: translate(2px, -2px) } 100% { transform: translate(0) }
+}
+.scroll-indicator {
+  position: absolute; bottom: 40px; display: flex; flex-direction: column; align-items: center; gap: 15px;
+}
+.scroll-indicator span { font-size: 0.6rem; letter-spacing: 4px; color: #666; text-transform: uppercase; }
+.scroll-indicator .line { width: 1px; height: 50px; background: linear-gradient(to bottom, #333, transparent); }
+
+/* --- 7. MARQUEE --- */
+.marquee-section {
+  padding: 40px 0; background: #000; border-bottom: 1px solid #222; overflow: hidden; position: relative; z-index: 5;
+}
+.marquee-container { width: 100%; overflow: hidden; white-space: nowrap; }
+.marquee-track { display: inline-block; }
+.marquee-track span {
+  font-size: 4rem; font-weight: 900; color: transparent; -webkit-text-stroke: 1px #444; text-transform: uppercase; margin-right: 50px; opacity: 0.5; transition: 0.3s;
+}
+.marquee-section:hover .marquee-track span { color: #fff; opacity: 1; -webkit-text-stroke: 0px; }
+
+/* --- 8. SECTIONS --- */
+.story-text p { font-size: 2.2rem; line-height: 1.3; font-weight: 300; margin-bottom: 30px; color: #eee; }
+.small-text-block { font-size: 1rem !important; color: #888 !important; margin-top: 40px; max-width: 650px; line-height: 1.6 !important; }
+
+.owners-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 80px; margin-top: 20px; }
+.owner-card { text-align: left; }
+.owner-img-container { width: 100%; height: 450px; overflow: hidden; margin-bottom: 25px; background: #111; }
+.owner-img-container img { width: 100%; height: 100%; object-fit: cover; transition: transform 1.2s cubic-bezier(0.19, 1, 0.22, 1), filter 0.5s ease; filter: grayscale(100%); transform: scale(1.1); }
+.owner-card:hover .owner-img-container img { filter: grayscale(0%); transform: scale(1.0); }
+.owner-card h3 { font-size: 1.5rem; text-transform: uppercase; margin-bottom: 15px; }
+.owner-card p { color: #777; font-size: 0.95rem; line-height: 1.7; margin-bottom: 25px; }
+.owner-socials a { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; color: #fff; border-bottom: 1px solid rgba(255,255,255,0.2); }
+
+.playlist-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; margin-top: 20px; }
+.playlist-item { position: relative; display: flex; flex-direction: column; justify-content: space-between; height: 300px; background: #000; border: 1px solid #333; overflow: hidden; transition: all 0.4s ease; }
+.pl-image-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; overflow: hidden; }
+.pl-image-layer img { width: 100%; height: 100%; object-fit: cover; opacity: 0.6; transition: transform 1.2s cubic-bezier(0.19, 1, 0.22, 1), opacity 0.4s ease; filter: grayscale(100%); transform: scale(1.1); }
+.playlist-item:hover .pl-image-layer img { transform: scale(1.0); opacity: 1; filter: grayscale(0%); }
+.pl-content-layer { position: relative; z-index: 1; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 30px; background: linear-gradient(to top, rgba(0,0,0,0.9), transparent); }
+.pl-number { font-size: 2rem; font-weight: 700; color: rgba(255, 255, 255, 0.5); }
+.pl-info { display: flex; justify-content: space-between; align-items: flex-end; border-top: 1px solid rgba(255,255,255,0.3); padding-top: 15px; }
+.pl-name { font-size: 1rem; font-weight: 700; text-transform: uppercase; color: #fff; max-width: 75%; }
+.pl-arrow { font-size: 0.8rem; color: #fff; background: rgba(255,255,255,0.1); padding: 5px 10px; backdrop-filter: blur(5px); }
+.playlist-item:hover .pl-arrow { background: #fff; color: #000; }
+
+/* --- 9. FORMULAIRE --- */
+.minimal-form { display: flex; flex-direction: column; gap: 50px; }
+.input-wrap { position: relative; }
+input { width: 100%; background: transparent; border: none; border-bottom: 1px solid #333; padding: 15px 0; color: white; font-family: 'Inter', sans-serif; font-size: 1.1rem; outline: none; transition: 0.4s; border-radius: 0; }
+input:focus { border-bottom-color: #fff; }
+input::placeholder { color: #333; text-transform: uppercase; font-size: 0.85rem; letter-spacing: 1px; font-weight: 600; }
+.submit-btn { margin-top: 30px; background: #fff; color: #000; border: none; padding: 25px; font-weight: 700; letter-spacing: 2px; transition: 0.3s; text-transform: uppercase; font-size: 0.9rem; display: block; width: 100%; }
+.submit-btn:hover { background: #ccc; transform: translateY(-2px); }
+
+/* --- 10. RADIO PLAYER (CORRIGÉ AVEC ONDES) --- */
+.radio-bar {
+  position: fixed; bottom: 30px; left: 50px; z-index: 200;
+  display: flex; align-items: center; gap: 20px;
+  background: rgba(0, 0, 0, 0.8); /* Fond plus sombre pour lisibilité */
+  backdrop-filter: blur(10px);
+  padding: 15px 30px; border: 1px solid #333; border-radius: 50px;
+}
+.radio-controls { display: flex; align-items: center; gap: 15px; }
+.control-btn { background: none; border: none; color: #fff; font-size: 1rem; opacity: 0.7; transition: 0.3s; padding: 5px; }
+.control-btn:hover { opacity: 1; color: #0f0; }
+.play-btn { font-size: 1.2rem; }
+
+.radio-info { display: flex; flex-direction: column; margin-right: 15px; }
+.track-title { font-size: 0.8rem; font-weight: bold; color: #fff; white-space: nowrap; }
+.track-artist { font-size: 0.7rem; color: #aaa; }
+
+/* ANIMATION DES ONDES (EQUALIZER) */
+.radio-waves {
+  display: flex; gap: 3px; align-items: flex-end; height: 15px;
+}
+.wave {
+  width: 3px;
+  background-color: #0f0; /* Vert Néon */
+  animation: waveAnim 1s infinite ease-in-out;
+}
+.wave:nth-child(2) { animation-delay: 0.1s; animation-duration: 1.2s; }
+.wave:nth-child(3) { animation-delay: 0.2s; animation-duration: 0.8s; }
+
+@keyframes waveAnim {
+  0%, 100% { height: 3px; }
+  50% { height: 15px; }
+}
+
+/* --- 11. FOOTER --- */
+.footer-section {
+  padding: 100px 50px; background: #080808; border-top: 1px solid #111; margin-top: auto;
+}
+
+.social-grid {
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 30px; margin-bottom: 120px;
+}
+
+/* Style des liens (conteneurs des SVG) */
+.social-grid a {
+  color: #333; /* Couleur gris foncé par défaut */
+  transition: color 0.4s ease, transform 0.4s ease;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px; /* Zone de confort magnétique */
+}
+
+/* Style des Icônes SVG */
+.social-svg {
+  width: 50px; /* Taille des logos */
+  height: 50px;
+  fill: currentColor; /* Prend la couleur du parent */
+}
+
+/* Au survol : Blanc Brillant + Petit saut */
+.social-grid a:hover {
+  color: #fff; /* Le logo devient blanc */
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.5)); /* Effet Néon */
+}
+
+.footer-bottom {
+  display: flex; justify-content: space-between; border-top: 1px solid #222;
+  padding-top: 30px; color: #444; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px;
+}
+/* --- 12. SECRET ROOM MODAL --- */
+.secret-trigger { cursor: pointer; transition: 0.3s; }
+.secret-trigger:hover { color: #fff; }
+.secret-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); z-index: 1000; display: flex; justify-content: center; align-items: center; }
+.secret-content { text-align: center; border: 1px solid #333; padding: 50px; max-width: 500px; background: #000; }
+.secret-content h2 { font-family: monospace; color: #0f0; margin-bottom: 20px; }
+.close-btn { margin-top: 20px; background: transparent; border: 1px solid #333; color: #666; padding: 10px 20px; }
+.download-link { color: #fff; border: 1px solid #fff; padding: 15px; display: block; transition: 0.3s; margin-bottom: 10px; }
+.download-link:hover { background: #fff; color: #000; }
+
+/* --- 13. RESPONSIVE --- */
+@media (max-width: 768px) {
+  .section-padding { padding: 80px 20px; }
+  .navbar { padding: 20px; }
+  .hero .main-logo { width: 280px; }
+  .story-text p { font-size: 1.6rem; }
+  .owners-grid { grid-template-columns: 1fr; gap: 60px; }
+  .social-grid a { font-size: 2rem; }
+  .radio-bar { left: 20px; bottom: 20px; padding: 10px 20px; width: auto; max-width: 90%; }
+  .track-artist { display: none; }
+  .marquee-track span { font-size: 2.5rem; }
+}
+/* --- SCROLL PROGRESS BAR --- */
+.progress-bar-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px; /* Très fin */
+  background: rgba(255, 255, 255, 0.1);
+  z-index: 99999; /* Au-dessus de tout, même la navbar */
+}
+
+.progress-bar-fill {
+  width: 100%;
+  height: 100%;
+  background: rgb(255, 255, 255); /* Vert Néon (ou Rouge si tu préfères) */
+  transform-origin: 0%;
+  transition: transform 0.1s ease-out; /* Fluide mais réactif */
+}
