@@ -104,6 +104,8 @@ function App() {
   // 3. RADIO LOGIC
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
+  const [volume, setVolume] = useState(0.7);
+  const [showVolume, setShowVolume] = useState(false);
   const audioRef = useRef(null);
 
   const radioPlaylist = [
@@ -121,6 +123,7 @@ function App() {
   const nextTrack = () => setCurrentTrackIndex((prev) => (prev + 1) % radioPlaylist.length);
   const prevTrack = () => setCurrentTrackIndex((prev) => prev === 0 ? radioPlaylist.length - 1 : prev - 1);
   useEffect(() => { if (isPlaying) audioRef.current.play().catch(e => console.log(e)); }, [currentTrackIndex]);
+  useEffect(() => { if (audioRef.current) audioRef.current.volume = volume; }, [volume]);
 
   // 4. SECRET ROOM & FORM
   const [showSecret, setShowSecret] = useState(false);
@@ -145,7 +148,7 @@ function App() {
     else window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=veltrixdemo@gmail.com&su=${subject}&body=${body}`, '_blank');
   };
 
-  // --- 5. SCROLL PROGRESS LOGIC (BARRE DE PROGRESSION) ---
+  // --- 5. SCROLL PROGRESS LOGIC ---
   const [scrollProgress, setScrollProgress] = useState(0);
 
   useEffect(() => {
@@ -172,13 +175,32 @@ function App() {
     { id: '10', name: 'MONTAGEM AMOSTRA', link: 'https://open.spotify.com/playlist/2M5btLtcNbl7XNO3mqSZm5?si=dd8bb7b203fd44d1', img: amostraImg },
   ];
 
+  // VTX SERVICES DATA
+  const starterFeatures = [
+    { icon: '◈', label: 'VTX Bot', detail: 'Discord automation, A&R voting, demo submissions, release announcements' },
+    { icon: '◈', label: 'VTX Forms', detail: 'Branded release submission portal — no more Google Forms' },
+    { icon: '◈', label: 'VTX Links', detail: 'Smart multi-link per release (Spotify, Apple Music, Deezer…)' },
+    { icon: '◈', label: 'VTX Calendar', detail: 'Shared release planning with your team, deadline tracking' },
+    { icon: '◈', label: 'Discord support', detail: '' },
+  ];
+
+  const proFeatures = [
+    { icon: '◈', label: 'Everything in Starter', detail: '', gold: true },
+    { icon: '◈', label: 'VTX Site', detail: 'Custom label website on vtxplatform.com or your own domain', gold: true },
+    { icon: '◈', label: 'VTX Promo', detail: 'Auto-generated Instagram posts, stories & banners per release', gold: true },
+    { icon: '◈', label: 'VTX Royalties', detail: 'CSV split parsing, monthly statements, artist earnings portals', gold: true },
+    { icon: '◈', label: 'VTX Contracts', detail: 'One-click split agreements — signed, stored as PDF', gold: true },
+    { icon: '◈', label: 'VTX Artist Portal', detail: 'Each artist gets their own login, white-labeled with your branding', gold: true },
+    { icon: '◈', label: 'Priority support', detail: '', gold: true },
+  ];
+
   const fadeInUp = { hidden: { opacity: 0, y: 60 }, visible: { opacity: 1, y: 0, transition: { duration: 1 } } };
   const staggerContainer = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
 
   return (
     <div className="app-container">
       
-      {/* --- C'EST ICI QU'ON AJOUTE LA BARRE DE PROGRESSION ! --- */}
+      {/* SCROLL PROGRESS BAR */}
       <div className="progress-bar-wrapper">
         <div 
           className="progress-bar-fill" 
@@ -200,27 +222,95 @@ function App() {
           <span className="track-title">{radioPlaylist[currentTrackIndex].title}</span>
           <span className="track-artist">{radioPlaylist[currentTrackIndex].artist}</span>
         </div>
+
+        {/* VOLUME */}
+        <div className="volume-wrap">
+          <Magnetic>
+            <button className="control-btn volume-icon-btn" onClick={() => setShowVolume(v => !v)} title="Volume">
+              {volume === 0 ? '🔇' : volume < 0.4 ? '🔈' : volume < 0.75 ? '🔉' : '🔊'}
+            </button>
+          </Magnetic>
+          <AnimatePresence>
+            {showVolume && (
+              <motion.div
+                className="volume-popup"
+                initial={{ opacity: 0, y: 8, scale: 0.92 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 8, scale: 0.92 }}
+                transition={{ duration: 0.18 }}
+              >
+                <span className="vol-label">VOL</span>
+                <input
+                  type="range" min="0" max="1" step="0.02"
+                  value={volume}
+                  onChange={e => setVolume(parseFloat(e.target.value))}
+                  className="vol-range"
+                />
+                <span className="vol-pct">{Math.round(volume * 100)}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
         <audio ref={audioRef} src={radioPlaylist[currentTrackIndex].src} onEnded={nextTrack} />
       </div>
 
       <Particles id="tsparticles" init={particlesInit} options={particlesOptions} />
 
-      {/* NAVBAR MAGNÉTIQUE */}
+      {/* NAVBAR */}
       <nav className="navbar">
         <div className="nav-brand">VELTRIX RECORDS</div>
         <div className="nav-links">
           <Magnetic><a href="#about">About</a></Magnetic>
           <Magnetic><a href="#owners">Team</a></Magnetic>
           <Magnetic><a href="#playlists">Playlists</a></Magnetic>
+          <Magnetic><a href="#services">Services</a></Magnetic>
           <Magnetic><a href="#demo">Submit</a></Magnetic>
         </div>
       </nav>
 
       {/* HERO */}
       <header className="hero">
-        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 1.5 }}>
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 1.5 }}
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '48px' }}
+        >
           <img src={logoImg} alt="Veltrix Logo" className="main-logo" />
+
+          {/* ANIMATED SUBMIT CTA */}
+          <motion.a
+            href="#demo"
+            className="hero-submit-btn"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{
+              opacity: 1,
+              y: 0,
+              boxShadow: [
+                '0 0 0px rgba(255,255,255,0.0)',
+                '0 0 22px rgba(255,255,255,0.18)',
+                '0 0 0px rgba(255,255,255,0.0)',
+              ],
+            }}
+            transition={{
+              opacity: { delay: 1.2, duration: 0.8 },
+              y: { delay: 1.2, duration: 0.8 },
+              boxShadow: { delay: 2, duration: 2.4, repeat: Infinity, ease: 'easeInOut' },
+            }}
+            whileHover={{ scale: 1.06, backgroundColor: '#ffffff', color: '#000' }}
+            whileTap={{ scale: 0.97 }}
+            onClick={e => { e.preventDefault(); document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' }); }}
+          >
+            <motion.span
+              animate={{ y: [0, 4, 0] }}
+              transition={{ duration: 1.4, repeat: Infinity, ease: 'easeInOut' }}
+              style={{ display: 'inline-block', marginRight: '10px' }}
+            >↓</motion.span>
+            SUBMIT YOUR DEMO
+          </motion.a>
         </motion.div>
+
         <motion.div className="scroll-indicator" initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 2 }}>
           <span>MAKING HITS GO VIRAL</span>
           <div className="line"></div>
@@ -232,7 +322,7 @@ function App() {
         <Marquee text="VELTRIX RECORDS • SHAPE THE NOISE • SUBMIT YOUR DEMO • VIRAL HITS ONLY •" />
       </div>
 
-      {/* SECTIONS */}
+      {/* ABOUT */}
       <section id="about" className="section-padding">
         <motion.div className="content-wrapper" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeInUp}>
           <h2 className="section-title">INFO</h2>
@@ -244,6 +334,7 @@ function App() {
         </motion.div>
       </section>
 
+      {/* OWNERS */}
       <section id="owners" className="section-padding">
         <motion.div className="content-wrapper" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={staggerContainer}>
           <h2 className="section-title">THE OWNERS</h2>
@@ -264,6 +355,7 @@ function App() {
         </motion.div>
       </section>
 
+      {/* PLAYLISTS */}
       <section id="playlists" className="section-padding">
         <motion.div className="content-wrapper" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={staggerContainer}>
           <h2 className="section-title">OUR BIGGEST PLAYLISTS</h2>
@@ -281,6 +373,113 @@ function App() {
         </motion.div>
       </section>
 
+      {/* ============================
+          VTX SERVICES SECTION
+      ============================= */}
+      <section id="services" className="section-padding services-section">
+        <motion.div className="content-wrapper" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={staggerContainer}>
+
+          <div className="services-title-row">
+            <h2 className="section-title">VTX SERVICES</h2>
+            <span className="coming-soon-badge">COMING SOON</span>
+          </div>
+
+          <motion.div className="services-intro" variants={fadeInUp}>
+            <p className="services-tagline">One account. Every tool your label needs.</p>
+            <p className="services-sub">
+              Stop paying for 5–10 tools that don't talk to each other. VTX brings everything into one platform — built by label owners, for label owners. No commission on your royalties. Cancel anytime.
+            </p>
+          </motion.div>
+
+          {/* PLANS */}
+          <div className="plans-grid">
+
+            {/* STARTER */}
+            <motion.div className="plan-card" variants={fadeInUp}>
+              <div className="plan-header">
+                <span className="plan-badge">STARTER</span>
+                <div className="plan-price">
+                  <span className="price-amount">9.99€</span>
+                  <span className="price-period">/mo</span>
+                </div>
+              </div>
+              <p className="plan-desc">Everything you need to launch your label professionally.</p>
+              <ul className="plan-features">
+                {starterFeatures.map((f, i) => (
+                  <li key={i}>
+                    <span className="feat-icon">{f.icon}</span>
+                    <span className="feat-text">
+                      <strong>{f.label}</strong>
+                      {f.detail && <em> — {f.detail}</em>}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="plan-cta">
+                <Magnetic>
+                  <span className="plan-btn plan-btn-outline plan-btn-disabled">COMING SOON</span>
+                </Magnetic>
+              </div>
+            </motion.div>
+
+            {/* PRO */}
+            <motion.div className="plan-card plan-card-featured" variants={fadeInUp}>
+              <div className="plan-glow"></div>
+              <div className="plan-header">
+                <span className="plan-badge plan-badge-gold">PRO ★ RECOMMENDED</span>
+                <div className="plan-price">
+                  <span className="price-amount price-gold">19.99€</span>
+                  <span className="price-period">/mo</span>
+                </div>
+              </div>
+              <p className="plan-desc">Your label looks like a major. Every tool, fully integrated.</p>
+              <ul className="plan-features">
+                {proFeatures.map((f, i) => (
+                  <li key={i}>
+                    <span className={`feat-icon ${f.gold ? 'feat-gold' : ''}`}>{f.icon}</span>
+                    <span className="feat-text">
+                      <strong>{f.label}</strong>
+                      {f.detail && <em> — {f.detail}</em>}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <div className="plan-cta">
+                <Magnetic>
+                  <span className="plan-btn plan-btn-filled plan-btn-disabled">COMING SOON</span>
+                </Magnetic>
+              </div>
+            </motion.div>
+          </div>
+
+          {/* MODULES GRID */}
+          <motion.div className="modules-row" variants={staggerContainer}>
+            {[
+              { name: 'VTX BOT', desc: 'Discord bot for demo submissions, A&R voting, automated channels & release announcements.' },
+              { name: 'VTX FORMS', desc: 'Branded release submission forms. Files stored in your dashboard. No more Google Forms.' },
+              { name: 'VTX SITE', desc: 'Template-based label website. Your logo, your colors. Hosted on vtxplatform.com or your domain.' },
+              { name: 'VTX LINKS', desc: 'One smart link per release redirecting to Spotify, Apple Music, Deezer. Branded. No extra sub.' },
+              { name: 'VTX PROMO', desc: 'Auto-generated Instagram posts, stories & banners from your cover art. Instant.' },
+              { name: 'VTX ROYALTIES', desc: 'Upload DistroKid / TuneCore CSV. Splits calculated, statements sent, artist portals live.' },
+            ].map((mod, i) => (
+              <motion.div className="module-item" key={i} variants={fadeInUp}>
+                <span className="module-num">0{i + 1}</span>
+                <div className="module-body">
+                  <h4>{mod.name}</h4>
+                  <p>{mod.desc}</p>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
+
+          <motion.p className="services-footnote" variants={fadeInUp}>
+            First month free for early adopters · No credit card required · No commission · Cancel anytime
+          </motion.p>
+
+        </motion.div>
+      </section>
+
+      {/* DEMO FORM */}
       <section id="demo" className="section-padding">
         <motion.div className="content-wrapper small-width" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeInUp}>
           <h2 className="section-title">SUBMIT DEMO</h2>
