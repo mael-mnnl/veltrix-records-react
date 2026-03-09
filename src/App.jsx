@@ -29,12 +29,17 @@ import doorsTrack from './assets/audio/DOORS.mp3';
 import engradaTrack from './assets/audio/ENGRADA.mp3';
 import radianteTrack from './assets/audio/RADIANTE.mp3';
 
-// --- COMPOSANT MAGNÉTIQUE (CORRIGÉ) ---
+// --- COMPOSANT MAGNÉTIQUE (desktop only) ---
 const Magnetic = ({ children }) => {
   const ref = useRef(null);
   const [position, setPosition] = useState({ x: 0, y: 0 });
+  const isTouchDevice = useRef(
+    typeof window !== 'undefined' &&
+    ('ontouchstart' in window || navigator.maxTouchPoints > 0)
+  );
 
   const handleMouse = (e) => {
+    if (isTouchDevice.current) return;
     const { clientX, clientY } = e;
     const { height, width, left, top } = ref.current.getBoundingClientRect();
     const middleX = clientX - (left + width / 2);
@@ -79,6 +84,10 @@ const Marquee = ({ text }) => {
 function App() {
   const particlesInit = useCallback(async engine => await loadSlim(engine), []);
 
+  // Detect touch device
+  const isTouchDevice = typeof window !== 'undefined' &&
+    ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+
   // 1. SMOOTH SCROLL
   useEffect(() => {
     const lenis = new Lenis({ duration: 1.2, easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), smooth: true });
@@ -87,10 +96,11 @@ function App() {
     return () => lenis.destroy();
   }, []);
 
-  // 2. CURSOR LOGIC
+  // 2. CURSOR LOGIC (desktop only)
   const [cursorPosition, setCursorPosition] = useState({ x: 0, y: 0 });
   const [hovered, setHovered] = useState(false);
   useEffect(() => {
+    if (isTouchDevice) return;
     const moveCursor = (e) => {
       setCursorPosition({ x: e.clientX, y: e.clientY });
       const target = e.target;
@@ -99,7 +109,7 @@ function App() {
     };
     window.addEventListener('mousemove', moveCursor);
     return () => window.removeEventListener('mousemove', moveCursor);
-  }, []);
+  }, [isTouchDevice]);
 
   // 3. RADIO LOGIC
   const [isPlaying, setIsPlaying] = useState(false);
@@ -148,9 +158,8 @@ function App() {
     else window.open(`https://mail.google.com/mail/?view=cm&fs=1&to=veltrixdemo@gmail.com&su=${subject}&body=${body}`, '_blank');
   };
 
-  // --- 5. SCROLL PROGRESS LOGIC ---
+  // 5. SCROLL PROGRESS LOGIC
   const [scrollProgress, setScrollProgress] = useState(0);
-
   useEffect(() => {
     const handleScroll = () => {
       const totalScroll = document.documentElement.scrollTop;
@@ -161,6 +170,17 @@ function App() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  // 6. MOBILE MENU STATE
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Lock scroll when menu open
+  useEffect(() => {
+    document.body.style.overflow = mobileMenuOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [mobileMenuOpen]);
+
+  const closeMobileMenu = () => setMobileMenuOpen(false);
 
   const playlists = [
     { id: '01', name: 'CONFESS PLAYLIST', link: 'https://open.spotify.com/playlist/70yxbbN9TWzybcRq3BKnQi?si=870263eed46345f1', img: confessImg },
@@ -197,6 +217,14 @@ function App() {
   const fadeInUp = { hidden: { opacity: 0, y: 60 }, visible: { opacity: 1, y: 0, transition: { duration: 1 } } };
   const staggerContainer = { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { staggerChildren: 0.1 } } };
 
+  const navItems = [
+    { href: '#about', label: 'About' },
+    { href: '#owners', label: 'Team' },
+    { href: '#playlists', label: 'Playlists' },
+    { href: '#services', label: 'Services' },
+    { href: '#demo', label: 'Submit' },
+  ];
+
   return (
     <div className="app-container">
       
@@ -209,7 +237,11 @@ function App() {
       </div>
 
       <div className="noise-overlay"></div>
-      <div className={`custom-cursor ${hovered ? 'hovered' : ''}`} style={{ left: cursorPosition.x, top: cursorPosition.y }}></div>
+
+      {/* Custom cursor — only shown on desktop */}
+      {!isTouchDevice && (
+        <div className={`custom-cursor ${hovered ? 'hovered' : ''}`} style={{ left: cursorPosition.x, top: cursorPosition.y }}></div>
+      )}
 
       {/* RADIO */}
       <div className="radio-bar">
@@ -260,14 +292,53 @@ function App() {
       {/* NAVBAR */}
       <nav className="navbar">
         <div className="nav-brand">VELTRIX RECORDS</div>
+
+        {/* Desktop links */}
         <div className="nav-links">
-          <Magnetic><a href="#about">About</a></Magnetic>
-          <Magnetic><a href="#owners">Team</a></Magnetic>
-          <Magnetic><a href="#playlists">Playlists</a></Magnetic>
-          <Magnetic><a href="#services">Services</a></Magnetic>
-          <Magnetic><a href="#demo">Submit</a></Magnetic>
+          {navItems.map(item => (
+            <Magnetic key={item.href}>
+              <a href={item.href}>{item.label}</a>
+            </Magnetic>
+          ))}
         </div>
+
+        {/* Mobile hamburger */}
+        <button
+          className={`nav-hamburger ${mobileMenuOpen ? 'open' : ''}`}
+          onClick={() => setMobileMenuOpen(v => !v)}
+          aria-label="Menu"
+        >
+          <span></span>
+          <span></span>
+          <span></span>
+        </button>
       </nav>
+
+      {/* Mobile full-screen menu */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div
+            className="mobile-menu"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+          >
+            {navItems.map((item, i) => (
+              <motion.a
+                key={item.href}
+                href={item.href}
+                onClick={closeMobileMenu}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.06 }}
+              >
+                {item.label}
+              </motion.a>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* HERO */}
       <header className="hero">
@@ -373,9 +444,7 @@ function App() {
         </motion.div>
       </section>
 
-      {/* ============================
-          VTX SERVICES SECTION
-      ============================= */}
+      {/* VTX SERVICES SECTION */}
       <section id="services" className="section-padding services-section">
         <motion.div className="content-wrapper" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={staggerContainer}>
 
