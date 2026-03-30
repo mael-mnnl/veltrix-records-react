@@ -20,8 +20,9 @@
   --mono:     'DM Mono', monospace;
 }
 
-body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; cursor: auto !important; }
-a, button, input, textarea, select, label, * { cursor: auto !important; }
+body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; cursor: auto; }
+a, button { cursor: pointer !important; }
+input, textarea, select { cursor: text !important; }
 input[type="checkbox"], input[type="radio"] { cursor: pointer !important; appearance: auto !important; -webkit-appearance: checkbox !important; }
 ::-webkit-scrollbar { width: 3px; height: 3px; }
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
@@ -109,8 +110,9 @@ input:focus { border-color: var(--green); }
   animation: slideUp .2s ease;
   display: flex; align-items: center; gap: 8px;
 }
-@keyframes slideUp { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
-@keyframes fadeIn  { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+@keyframes slideUp      { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+@keyframes fadeIn       { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+@keyframes indeterminate { 0% { transform:translateX(-100%) scaleX(.5); } 100% { transform:translateX(400%) scaleX(.5); } }
 .fade-in { animation: fadeIn .25s ease; }
 
 /* Login page */

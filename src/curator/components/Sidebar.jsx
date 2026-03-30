@@ -1,9 +1,12 @@
 const NAV = [
   { id: "playlists", icon: "♪",  label: "Mes Playlists" },
   { id: "broadcast", icon: "⚡", label: "Multi-Playlist" },
+  { id: "radar",     icon: "📡", label: "Radar" },
+  { id: "stats",     icon: "📊", label: "Stats" },
+  { id: "alerts",    icon: "🔔", label: "Alertes" },
 ];
 
-export default function Sidebar({ user, tab, setTab, onLogout }) {
+export default function Sidebar({ user, tab, setTab, onLogout, badges = {} }) {
   return (
     <aside className="sidebar">
       <div style={{ padding: "6px 10px 20px" }}>
@@ -14,7 +17,20 @@ export default function Sidebar({ user, tab, setTab, onLogout }) {
 
       {NAV.map(n => (
         <button key={n.id} className={`nav-item ${tab === n.id ? "active" : ""}`} onClick={() => setTab(n.id)}>
-          <span style={{ fontSize: 15, width: 18, textAlign: "center" }}>{n.icon}</span>
+          <span style={{ fontSize: 15, width: 18, textAlign: "center", position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+            {n.icon}
+            {badges[n.id] > 0 && (
+              <span style={{
+                position: "absolute", top: -4, right: -6,
+                background: "var(--red)", color: "#fff",
+                borderRadius: "50%", fontSize: 9, fontWeight: 800,
+                width: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center",
+                lineHeight: 1,
+              }}>
+                {badges[n.id] > 9 ? "9+" : badges[n.id]}
+              </span>
+            )}
+          </span>
           {n.label}
         </button>
       ))}

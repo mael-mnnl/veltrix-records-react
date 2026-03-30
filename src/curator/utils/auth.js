@@ -7,6 +7,7 @@ export const SCOPES = [
   "playlist-modify-private",
   "user-read-private",
   "user-read-email",
+  "ugc-image-upload",
 ].join(" ");
 
 // ── JWT decode (best-effort — Spotify tokens may or may not be JWTs) ────────
@@ -86,6 +87,7 @@ export async function exchangeCodeForToken(code) {
   localStorage.setItem("spotify_token",   data.access_token);
   localStorage.setItem("spotify_refresh",  data.refresh_token);
   localStorage.setItem("spotify_expires",  String(Date.now() + data.expires_in * 1000));
+  localStorage.setItem("spotify_scopes",   data.scope ?? "");
   return data.access_token;
 }
 

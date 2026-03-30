@@ -14,8 +14,7 @@ body {
 }
 
 @media (hover: hover) and (pointer: fine) {
-  body { cursor: none; }
-  a, button, input, textarea { cursor: none !important; }
+  .cursor-none, .cursor-none * { cursor: none !important; }
 }
 
 ::-webkit-scrollbar { width: 0px; background: transparent; }

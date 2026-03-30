@@ -2,6 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import {
   getAllPlaylists, getPlaylistTracks, getTrackById,
   removeTrackFromPlaylist, addTrackToPlaylist, searchTracks,
+  getMe, createPlaylist, addTracksToPlaylist, getRecommendationsBySeeds,
+  uploadPlaylistCover, invalidatePlaylistsCache,
 } from "../utils/spotify";
 import { Toast, useToast } from "../components/Toast";
 
@@ -15,18 +17,32 @@ const fmt = (ms) => {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 };
 
+async function imageToBase64(url) {
+  const res  = await fetch(url);
+  const blob = await res.blob();
+  return new Promise((resolve, reject) => {
+    const reader   = new FileReader();
+    reader.onload  = () => resolve(reader.result.split(",")[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
 export default function PlaylistsPage() {
-  const [playlists,  setPlaylists]  = useState([]);
-  const [selected,   setSelected]   = useState(null);
-  const [tracks,     setTracks]     = useState([]);
-  const [loadingPl,  setLoadingPl]  = useState(true);
-  const [loadingTr,  setLoadingTr]  = useState(false);
-  const [errorPl,    setErrorPl]    = useState(null);
-  const [errorTr,    setErrorTr]    = useState(null);
-  const [searchQ,    setSearchQ]    = useState("");
-  const [results,    setResults]    = useState([]);
-  const [searching,  setSearching]  = useState(false);
-  const [addPos,     setAddPos]     = useState(1);
+  const [playlists,       setPlaylists]       = useState([]);
+  const [selected,        setSelected]        = useState(null);
+  const [tracks,          setTracks]          = useState([]);
+  const [loadingPl,       setLoadingPl]       = useState(true);
+  const [loadingTr,       setLoadingTr]       = useState(false);
+  const [errorPl,         setErrorPl]         = useState(null);
+  const [errorTr,         setErrorTr]         = useState(null);
+  const [searchQ,         setSearchQ]         = useState("");
+  const [results,         setResults]         = useState([]);
+  const [searching,       setSearching]       = useState(false);
+  const [addPos,          setAddPos]          = useState(1);
+  const [userId,          setUserId]          = useState(null);
+  const [duplicating,     setDuplicating]     = useState(new Set());
+  const [dupProgress,     setDupProgress]     = useState(null); // { playlistId, label }
   const searchTimer = useRef(null);
   const { toast, show } = useToast();
 
@@ -35,9 +51,10 @@ export default function PlaylistsPage() {
       .then(setPlaylists)
       .catch(e => setErrorPl(e.message))
       .finally(() => setLoadingPl(false));
+    getMe().then(me => setUserId(me?.id ?? null)).catch(() => {});
   }, []);
 
-  // ── Load tracks for a playlist ────────────────────────────────────────────
+  // ── Load tracks ───────────────────────────────────────────────────────────
 
   const loadTracks = async (pl) => {
     if (selected?.id === pl.id) return;
@@ -68,7 +85,7 @@ export default function PlaylistsPage() {
     }
   };
 
-  // ── Search (URL Spotify or text) ──────────────────────────────────────────
+  // ── Search ────────────────────────────────────────────────────────────────
 
   const handleSearch = (rawQ) => {
     setSearchQ(rawQ);
@@ -109,10 +126,76 @@ export default function PlaylistsPage() {
       show(`"${track.name}" ajouté en position ${addPos}`, "success");
       setSearchQ("");
       setResults([]);
-      // Refresh la liste en arrière-plan, sans bloquer
       getPlaylistTracks(selected.id).then(setTracks).catch(() => {});
     } catch (e) {
       show("Erreur ajout : " + e.message, "error");
+    }
+  };
+
+  // ── Duplicate playlist ────────────────────────────────────────────────────
+
+  const handleDuplicate = async (pl) => {
+    if (!userId) { show("Connexion requise", "error"); return; }
+    setDuplicating(prev => new Set(prev).add(pl.id));
+    setDupProgress({ playlistId: pl.id, label: "Chargement des tracks…" });
+
+    try {
+      // 1. Get all tracks
+      const items     = await getPlaylistTracks(pl.id);
+      const trackObjs = items.map(i => i.track).filter(t => t?.id);
+
+      if (trackObjs.length === 0) {
+        show("Playlist vide, impossible de dupliquer", "error");
+        return;
+      }
+
+      // 2. Sort by popularity, take top 5 as seeds
+      const sorted  = [...trackObjs].sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
+      const seeds   = sorted.slice(0, Math.min(5, sorted.length));
+      const seedIds = seeds.map(t => t.id);
+      const sourceUris = new Set(trackObjs.map(t => t.uri).filter(Boolean));
+
+      setDupProgress({ playlistId: pl.id, label: "Génération des recommandations…" });
+
+      // 3. Recommendations filtered to exclude source tracks
+      const recs     = await getRecommendationsBySeeds(seedIds);
+      const recUris  = (recs?.tracks || [])
+        .filter(t => t?.uri && !sourceUris.has(t.uri))
+        .slice(0, 30)
+        .map(t => t.uri);
+
+      setDupProgress({ playlistId: pl.id, label: "Création de la playlist…" });
+
+      // 4. Create playlist
+      const newPl = await createPlaylist(userId, `${pl.name} — Vol.2`, pl.description || "");
+
+      setDupProgress({ playlistId: pl.id, label: "Ajout des tracks…" });
+
+      // 5. Add tracks
+      if (recUris.length > 0) await addTracksToPlaylist(newPl.id, recUris);
+
+      // 6. Upload same cover
+      const coverUrl = pl.images?.[0]?.url;
+      if (coverUrl) {
+        setDupProgress({ playlistId: pl.id, label: "Upload de la cover…" });
+        try {
+          const b64 = await imageToBase64(coverUrl);
+          await uploadPlaylistCover(newPl.id, b64);
+        } catch {}
+      }
+
+      // 7. Refresh playlist list
+      invalidatePlaylistsCache();
+      const updated = await getAllPlaylists();
+      setPlaylists(updated);
+
+      show(`"${pl.name} — Vol.2" créée ✓ (${recUris.length} tracks)`, "success");
+
+    } catch (e) {
+      show("Erreur duplication : " + e.message, "error");
+    } finally {
+      setDuplicating(prev => { const n = new Set(prev); n.delete(pl.id); return n; });
+      setDupProgress(null);
     }
   };
 
@@ -131,6 +214,16 @@ export default function PlaylistsPage() {
             </span>
           )}
         </h2>
+
+        {/* Duplicate progress strip */}
+        {dupProgress && (
+          <div style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>{dupProgress.label}</div>
+            <div style={{ height: 3, background: "var(--border)", borderRadius: 2, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: "100%", background: "var(--green)", borderRadius: 2, animation: "indeterminate 1.4s ease infinite" }} />
+            </div>
+          </div>
+        )}
 
         {loadingPl && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -152,22 +245,39 @@ export default function PlaylistsPage() {
           </div>
         )}
 
-        {playlists.map(pl => (
-          <div
-            key={pl.id}
-            className={`pl-row ${selected?.id === pl.id ? "selected" : ""}`}
-            onClick={() => loadTracks(pl)}
-          >
-            {pl.images?.[0]?.url
-              ? <img src={pl.images[0].url} style={{ width: 38, height: 38, borderRadius: 7, objectFit: "cover", flexShrink: 0 }} />
-              : <div style={{ width: 38, height: 38, borderRadius: 7, background: "var(--surface2)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>♪</div>
-            }
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pl.name}</div>
-              <div style={{ fontSize: 11, color: "var(--faint)" }}>{pl.tracks?.total ?? pl.items?.total ?? "?"} tracks</div>
+        {playlists.map(pl => {
+          const isDuplicating = duplicating.has(pl.id);
+          return (
+            <div
+              key={pl.id}
+              className={`pl-row ${selected?.id === pl.id ? "selected" : ""}`}
+              onClick={() => loadTracks(pl)}
+              style={{ position: "relative" }}
+            >
+              {pl.images?.[0]?.url
+                ? <img src={pl.images[0].url} style={{ width: 38, height: 38, borderRadius: 7, objectFit: "cover", flexShrink: 0 }} />
+                : <div style={{ width: 38, height: 38, borderRadius: 7, background: "var(--surface2)", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>♪</div>
+              }
+              <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pl.name}</div>
+                <div style={{ fontSize: 11, color: "var(--faint)" }}>{pl.tracks?.total ?? pl.items?.total ?? "?"} tracks</div>
+              </div>
+              <button
+                className="btn btn-ghost btn-sm"
+                title="Dupliquer intelligemment"
+                disabled={isDuplicating || !userId}
+                onClick={e => { e.stopPropagation(); handleDuplicate(pl); }}
+                style={{
+                  fontSize: 11, padding: "3px 7px", flexShrink: 0,
+                  opacity: isDuplicating ? 0.4 : 0.7,
+                  color: "var(--green)",
+                }}
+              >
+                {isDuplicating ? "…" : "⚡"}
+              </button>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* ── Right: track detail ────────────────────── */}
@@ -192,7 +302,6 @@ export default function PlaylistsPage() {
               </div>
             </div>
 
-            {/* Error */}
             {errorTr && (
               <div style={{ color: "var(--red)", fontSize: 13, padding: 14, background: "rgba(255,85,85,.08)", borderRadius: 10, marginBottom: 16, lineHeight: 1.5 }}>
                 ⚠ {errorTr}
