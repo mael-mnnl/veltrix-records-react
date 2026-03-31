@@ -25,9 +25,6 @@ class ErrorBoundary extends Component {
 }
 
 export default function App() {
-  const [unlocked, setUnlocked] = useState(
-    sessionStorage.getItem("curator_unlocked") === "true"
-  );
   const [token, setToken]           = useState(null);
   const [user, setUser]             = useState(null);
   const [loading, setLoading]       = useState(true);
@@ -116,33 +113,6 @@ export default function App() {
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
-  if (!unlocked) return (
-    <div style={{
-      minHeight: "100vh", display: "flex", alignItems: "center",
-      justifyContent: "center", background: "#080810", flexDirection: "column", gap: 16
-    }}>
-      <div style={{ fontSize: 32 }}>🎧</div>
-      <div style={{ color: "#eeeef8", fontFamily: "sans-serif", fontSize: 14, marginBottom: 8 }}>
-        CuratorOS — Accès restreint
-      </div>
-      <input
-        type="password"
-        placeholder="Mot de passe"
-        autoFocus
-        style={{
-          background: "#171726", border: "1px solid #2a2a45", color: "#eeeef8",
-          padding: "10px 16px", borderRadius: 9, fontSize: 14, outline: "none", width: 220
-        }}
-        onChange={e => {
-          if (e.target.value === import.meta.env.VITE_CURATOR_PASSWORD) {
-            sessionStorage.setItem("curator_unlocked", "true");
-            setUnlocked(true);
-          }
-        }}
-      />
-    </div>
-  );
-
   if (loading) return (
     <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", color:"var(--muted)", fontFamily:"var(--sans)" }}>
       Connexion…
