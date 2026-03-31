@@ -87,6 +87,7 @@ export default function DebugPage() {
     setPostLoading(true);
     setPostResult(null);
     const token = localStorage.getItem("spotify_token");
+    const storedScopes = localStorage.getItem("spotify_scopes") || "(vide)";
 
     // 1. Get userId
     let userId = null;
@@ -97,45 +98,54 @@ export default function DebugPage() {
       const meBody = await meRes.json();
       userId = meBody?.id ?? null;
     } catch (e) {
-      setPostResult({ step: "GET /me", error: e.message });
+      setPostResult({ storedScopes, step: "GET /me", error: e.message });
       setPostLoading(false);
       return;
     }
 
-    // 2. Raw POST — capture exact Spotify response
-    const postRes = await fetch(`https://api.spotify.com/v1/users/${userId}/playlists`, {
-      method:  "POST",
-      headers: {
-        Authorization:  `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ name: "__debug_test__", description: "", public: false }),
-    });
-
-    const rawText = await postRes.text();
-    let parsedBody = null;
-    try { parsedBody = JSON.parse(rawText); } catch {}
-
-    const result = {
-      userId,
-      status:    postRes.status,
-      ok:        postRes.ok,
-      rawText,
-      parsed:    parsedBody,
+    const raw = async (method, path, body) => {
+      const res  = await fetch(`https://api.spotify.com/v1${path}`, {
+        method,
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        ...(body ? { body: JSON.stringify(body) } : {}),
+      });
+      const text = await res.text();
+      let parsed = null; try { parsed = JSON.parse(text); } catch {}
+      return { status: res.status, ok: res.ok, text, parsed };
     };
 
-    // 3. If created, immediately delete it to clean up
-    if (postRes.ok && parsedBody?.id) {
-      try {
-        await fetch(`https://api.spotify.com/v1/playlists/${parsedBody.id}/followers`, {
-          method:  "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        result.cleanup = "Playlist test supprimée ✓";
-      } catch { result.cleanup = "Suppression échouée (à supprimer manuellement)"; }
+    // 2. Test POST private playlist
+    const priv = await raw("POST", `/users/${userId}/playlists`, { name: "__debug_private__", description: "", public: false });
+
+    // 3. Test POST public playlist
+    const pub  = await raw("POST", `/users/${userId}/playlists`, { name: "__debug_public__",  description: "", public: true  });
+
+    // 4. Test add track to first owned playlist (different write endpoint)
+    let addTrack = null;
+    try {
+      const plRes  = await fetch(`https://api.spotify.com/v1/me/playlists?limit=1`, { headers: { Authorization: `Bearer ${token}` } });
+      const plData = await plRes.json();
+      const plId   = plData?.items?.[0]?.id;
+      if (plId) {
+        // Try adding a known track URI (non-destructive: track may already be there)
+        addTrack = await raw("POST", `/playlists/${plId}/tracks`, { uris: ["spotify:track:4uLU6hMCjMI75M1A2tKUQC"], position: 0 });
+        // Immediately remove it to clean up
+        if (addTrack.ok) {
+          await raw("DELETE", `/playlists/${plId}/tracks`, { tracks: [{ uri: "spotify:track:4uLU6hMCjMI75M1A2tKUQC" }] });
+          addTrack.cleanup = "Track test retiré ✓";
+        }
+      }
+    } catch {}
+
+    // Clean up any created playlists
+    for (const r of [priv, pub]) {
+      if (r.ok && r.parsed?.id) {
+        try { await raw("DELETE", `/playlists/${r.parsed.id}/followers`, null); r.cleanup = "Supprimée ✓"; }
+        catch {}
+      }
     }
 
-    setPostResult(result);
+    setPostResult({ storedScopes, userId, priv, pub, addTrack });
     setPostLoading(false);
   }
 
@@ -157,19 +167,42 @@ export default function DebugPage() {
 
         {postResult && (
           <div style={{ marginTop: 16 }}>
-            <div style={{ color: postResult.ok ? "#1DB954" : "#ff6b6b", fontWeight: 700, marginBottom: 8 }}>
-              {postResult.ok ? "✓ Succès — le token a les bons scopes" : `✗ Erreur HTTP ${postResult.status} — token sans scopes write`}
-            </div>
+            <Row label="Scopes stockés (localStorage)" value={postResult.storedScopes} />
             <Row label="User ID" value={postResult.userId ?? "—"} />
-            <Row label="Status" value={postResult.status} />
-            {postResult.cleanup && <Row label="Nettoyage" value={postResult.cleanup} />}
-            <div style={{ marginTop: 8, ...styles.label }}>Body brut Spotify :</div>
-            <pre style={styles.pre}>{postResult.rawText}</pre>
+
+            {[
+              { key: "priv",     label: "POST private playlist (needs playlist-modify-private)" },
+              { key: "pub",      label: "POST public playlist  (needs playlist-modify-public)" },
+              { key: "addTrack", label: "POST add track to playlist (needs modify-*)" },
+            ].map(({ key, label }) => {
+              const r = postResult[key];
+              if (!r) return null;
+              return (
+                <div key={key} style={{ margin: "10px 0" }}>
+                  <div style={{ color: r.ok ? "#1DB954" : "#ff6b6b", fontWeight: 700 }}>
+                    {r.ok ? "✓" : `✗ ${r.status}`} {label}
+                  </div>
+                  {r.cleanup && <div style={{ color: "#aaa", fontSize: 12 }}>{r.cleanup}</div>}
+                  <pre style={styles.pre}>{r.text}</pre>
+                </div>
+              );
+            })}
+
             {postResult.error && <div style={{ color: "#ff6b6b" }}>{postResult.error}</div>}
-            {!postResult.ok && (
-              <button onClick={() => { logout(); redirectToSpotify(); }} style={{ ...styles.btn, marginTop: 14, background: "#ff6b6b", width: "100%" }}>
-                🔄 Forcer une nouvelle authentification Spotify
-              </button>
+
+            {(postResult.priv && !postResult.priv.ok) && (
+              <div style={{ marginTop: 14, padding: "12px 14px", background: "rgba(255,107,107,0.08)", border: "1px solid rgba(255,107,107,0.3)", borderRadius: 8, fontSize: 13 }}>
+                <strong style={{ color: "#ff6b6b" }}>Toutes les opérations write échouent.</strong>
+                <div style={{ color: "#aaa", marginTop: 6 }}>
+                  Si les scopes ci-dessus contiennent <code>playlist-modify-public</code> et <code>playlist-modify-private</code> mais le 403 persiste,
+                  le problème vient du <strong>Spotify Developer Dashboard</strong> — pas du code.
+                  Va sur <strong>developer.spotify.com</strong>, ouvre ton app (<code>82921638d58f49368a3a3ff7af89da59</code>),
+                  accepte les CGU si demandé et vérifie que l'app n'est pas restreinte.
+                </div>
+                <button onClick={() => { logout(); redirectToSpotify(); }} style={{ ...styles.btn, marginTop: 12, background: "#ff6b6b", width: "100%" }}>
+                  🔄 Reconnecter quand même
+                </button>
+              </div>
             )}
           </div>
         )}
