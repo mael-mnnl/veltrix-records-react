@@ -119,7 +119,7 @@ export default function App() {
     </div>
   );
 
-  if (window.location.pathname === "/debug") return <ErrorBoundary><DebugPage /></ErrorBoundary>;
+  if (window.location.pathname === "/curator/debug") return <ErrorBoundary><DebugPage /></ErrorBoundary>;
   if (!token) return <ErrorBoundary><Login /></ErrorBoundary>;
   return (
     <ErrorBoundary>
