@@ -86,8 +86,21 @@ async function apiFetch(urlOrPath, options = {}) {
 
   if (res.status === 403) {
     let body = {}; try { body = await res.json(); } catch {}
-    console.error("[spotify] 403:", url, body);
-    throw new Error("Erreur 403 : scope manquant ou contenu restreint");
+    const spotifyMsg = body?.error?.message ?? body?.error ?? "";
+    const spotifyReason = body?.error?.reason ?? "";
+    console.error("[spotify] 403:", url, JSON.stringify(body));
+    // Scope-related 403s: force re-auth so the user gets a fresh token with correct scopes
+    if (
+      spotifyReason === "PREMIUM_REQUIRED" ||
+      spotifyMsg.toLowerCase().includes("scope") ||
+      spotifyMsg.toLowerCase().includes("permission") ||
+      spotifyMsg.toLowerCase().includes("insufficient") ||
+      url.includes("/playlists")
+    ) {
+      window.dispatchEvent(new CustomEvent("spotify-reauth", { detail: { reason: spotifyMsg || "scope manquant" } }));
+    }
+    const detail = spotifyMsg ? ` (${spotifyMsg}${spotifyReason ? " — " + spotifyReason : ""})` : "";
+    throw new Error(`Erreur 403 : scope manquant ou contenu restreint${detail}`);
   }
 
   let json;

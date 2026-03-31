@@ -83,6 +83,18 @@ export default function App() {
     return () => window.removeEventListener("spotify-logout", onLogout);
   }, []);
 
+  // ── Force re-auth on 403 scope errors ─────────────────────────────────────
+  useEffect(() => {
+    const onReauth = (e) => {
+      if (!initDone.current) return;
+      console.warn("[auth] 403 scope error — forcing re-auth:", e.detail?.reason);
+      logout();
+      redirectToSpotify();
+    };
+    window.addEventListener("spotify-reauth", onReauth);
+    return () => window.removeEventListener("spotify-reauth", onReauth);
+  }, []);
+
   const handleLogout = () => {
     logout();
     setToken(null);

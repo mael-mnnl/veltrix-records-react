@@ -119,6 +119,8 @@ export async function refreshAccessToken() {
   localStorage.setItem("spotify_token",  data.access_token);
   localStorage.setItem("spotify_expires", String(Date.now() + data.expires_in * 1000));
   if (data.refresh_token) localStorage.setItem("spotify_refresh", data.refresh_token);
+  // Always persist the granted scopes so hasRequiredScopes() stays accurate
+  if (data.scope) localStorage.setItem("spotify_scopes", data.scope);
   return data.access_token;
 }
 
@@ -135,5 +137,6 @@ export function logout() {
   localStorage.removeItem("spotify_token");
   localStorage.removeItem("spotify_refresh");
   localStorage.removeItem("spotify_expires");
+  localStorage.removeItem("spotify_scopes");
   sessionStorage.removeItem("code_verifier");
 }
