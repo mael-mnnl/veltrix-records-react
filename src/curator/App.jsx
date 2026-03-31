@@ -28,9 +28,10 @@ export default function App() {
   const [unlocked, setUnlocked] = useState(
     sessionStorage.getItem("curator_unlocked") === "true"
   );
-  const [token, setToken]     = useState(null);
-  const [user, setUser]       = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [token, setToken]           = useState(null);
+  const [user, setUser]             = useState(null);
+  const [loading, setLoading]       = useState(true);
+  const [scopeWarning, setScopeWarning] = useState(false);
   const initDone = useRef(false);
 
   // ── Auth init ──────────────────────────────────────────────────────────────
@@ -43,6 +44,12 @@ export default function App() {
         window.history.replaceState({}, "", "/curator");
         try {
           const t = await exchangeCodeForToken(code);
+          // Verify scopes returned by Spotify contain the required ones
+          const grantedScopes = (localStorage.getItem("spotify_scopes") || "").split(" ");
+          const required = ["playlist-modify-public", "playlist-modify-private"];
+          if (!required.every(s => grantedScopes.includes(s))) {
+            setScopeWarning(true);
+          }
           setToken(t);
           // getMe may fail transiently right after exchange — not a reason to logout
           try { setUser(await getMe()); } catch {}
@@ -101,6 +108,11 @@ export default function App() {
     setUser(null);
   };
 
+  const handleReconnect = () => {
+    logout();
+    redirectToSpotify();
+  };
+
   // ── Render ─────────────────────────────────────────────────────────────────
   if (!unlocked) return (
     <div style={{
@@ -137,5 +149,26 @@ export default function App() {
 
   if (window.location.pathname === "/debug") return <ErrorBoundary><DebugPage /></ErrorBoundary>;
   if (!token) return <ErrorBoundary><Login /></ErrorBoundary>;
-  return <ErrorBoundary><Main user={user} onLogout={handleLogout} /></ErrorBoundary>;
+  return (
+    <ErrorBoundary>
+      {scopeWarning && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, zIndex: 9999,
+          background: "rgba(255,170,0,0.95)", backdropFilter: "blur(8px)",
+          padding: "12px 20px", display: "flex", alignItems: "center",
+          justifyContent: "space-between", gap: 12,
+          fontSize: 13, fontWeight: 600, color: "#1a1a00",
+          boxShadow: "0 2px 16px rgba(255,170,0,0.4)",
+        }}>
+          <span>⚠ Permissions insuffisantes — déconnecte-toi et reconnecte-toi pour activer toutes les fonctionnalités.</span>
+          <button onClick={handleReconnect} style={{
+            background: "#1a1a00", color: "#ffaa00", border: "none",
+            borderRadius: 7, padding: "7px 16px", fontWeight: 700,
+            fontSize: 13, cursor: "pointer", whiteSpace: "nowrap",
+          }}>Se reconnecter</button>
+        </div>
+      )}
+      <Main user={user} onLogout={handleLogout} onReconnect={handleReconnect} scopeWarning={scopeWarning} />
+    </ErrorBoundary>
+  );
 }

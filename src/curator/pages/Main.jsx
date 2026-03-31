@@ -65,7 +65,7 @@ function RateLimitBanner({ until, onExpire }) {
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
-export default function Main({ user, onLogout }) {
+export default function Main({ user, onLogout, onReconnect, scopeWarning }) {
   const [tab,          setTab]          = useState("playlists");
   const [unseenAlerts, setUnseenAlerts] = useState(getInitialUnseen);
   const [rlUntil,      setRlUntil]      = useState(() => {
@@ -93,8 +93,10 @@ export default function Main({ user, onLogout }) {
         tab={tab}
         setTab={setTab}
         onLogout={onLogout}
+        onReconnect={onReconnect}
         badges={{ alerts: unseenAlerts }}
         rateLimited={isRL}
+        scopeWarning={scopeWarning}
       />
 
       <div className="main" style={isRL ? { paddingTop: 46 } : {}}>

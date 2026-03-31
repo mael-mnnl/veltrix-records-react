@@ -6,7 +6,7 @@ const NAV = [
   { id: "alerts",    icon: "🔔", label: "Alertes" },
 ];
 
-export default function Sidebar({ user, tab, setTab, onLogout, badges = {} }) {
+export default function Sidebar({ user, tab, setTab, onLogout, onReconnect, badges = {}, scopeWarning }) {
   return (
     <aside className="sidebar">
       <div style={{ padding: "6px 10px 20px" }}>
@@ -47,6 +47,20 @@ export default function Sidebar({ user, tab, setTab, onLogout, badges = {} }) {
           </div>
           <button onClick={onLogout} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--faint)", fontSize: 16, padding: 4 }} title="Déconnexion">⏏</button>
         </div>
+      )}
+
+      {onReconnect && (
+        <button onClick={onReconnect} style={{
+          margin: "8px 10px 10px", width: "calc(100% - 20px)",
+          background: scopeWarning ? "rgba(255,170,0,0.15)" : "rgba(255,255,255,0.04)",
+          border: scopeWarning ? "1px solid rgba(255,170,0,0.4)" : "1px solid var(--border)",
+          borderRadius: 8, padding: "8px 10px", cursor: "pointer",
+          color: scopeWarning ? "#ffaa00" : "var(--faint)",
+          fontSize: 12, fontWeight: 600, display: "flex", alignItems: "center",
+          gap: 6, justifyContent: "center",
+        }} title="Forcer une nouvelle authentification Spotify">
+          🔄 Reconnecter
+        </button>
       )}
     </aside>
   );
