@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { getMe, getAllPlaylists } from "../utils/spotify";
+import { logout, redirectToSpotify } from "../utils/auth";
 
 function tryDecodeJWT(token) {
   try {
@@ -157,7 +158,7 @@ export default function DebugPage() {
         {postResult && (
           <div style={{ marginTop: 16 }}>
             <div style={{ color: postResult.ok ? "#1DB954" : "#ff6b6b", fontWeight: 700, marginBottom: 8 }}>
-              {postResult.ok ? "✓ Succès" : `✗ Erreur HTTP ${postResult.status}`}
+              {postResult.ok ? "✓ Succès — le token a les bons scopes" : `✗ Erreur HTTP ${postResult.status} — token sans scopes write`}
             </div>
             <Row label="User ID" value={postResult.userId ?? "—"} />
             <Row label="Status" value={postResult.status} />
@@ -165,6 +166,11 @@ export default function DebugPage() {
             <div style={{ marginTop: 8, ...styles.label }}>Body brut Spotify :</div>
             <pre style={styles.pre}>{postResult.rawText}</pre>
             {postResult.error && <div style={{ color: "#ff6b6b" }}>{postResult.error}</div>}
+            {!postResult.ok && (
+              <button onClick={() => { logout(); redirectToSpotify(); }} style={{ ...styles.btn, marginTop: 14, background: "#ff6b6b", width: "100%" }}>
+                🔄 Forcer une nouvelle authentification Spotify
+              </button>
+            )}
           </div>
         )}
       </div>
