@@ -10,6 +10,13 @@ export const SCOPES = [
   "ugc-image-upload",
 ].join(" ");
 
+const REQUIRED_SCOPES = ["playlist-modify-public", "playlist-modify-private"];
+
+export function hasRequiredScopes() {
+  const granted = (localStorage.getItem("spotify_scopes") || "").split(" ");
+  return REQUIRED_SCOPES.every(s => granted.includes(s));
+}
+
 // ── JWT decode (best-effort — Spotify tokens may or may not be JWTs) ────────
 
 function tryDecodeJWT(token) {

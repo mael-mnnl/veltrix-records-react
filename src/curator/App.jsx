@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, Component } from "react";
 import './curator.css';
-import { exchangeCodeForToken, getValidToken, logout } from "./utils/auth";
+import { exchangeCodeForToken, getValidToken, logout, hasRequiredScopes, redirectToSpotify } from "./utils/auth";
 import { getMe } from "./utils/spotify";
 import Login from "./pages/Login";
 import Main from "./pages/Main";
@@ -56,6 +56,12 @@ export default function App() {
 
       const t = await getValidToken();
       if (t) {
+        if (!hasRequiredScopes()) {
+          // Token exists but was granted without the required scopes — force re-auth
+          logout();
+          redirectToSpotify();
+          return;
+        }
         setToken(t);
         try { setUser(await getMe()); } catch {}
       }
