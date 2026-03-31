@@ -260,6 +260,7 @@ function App() {
     { href: '#playlists', label: 'Playlists' },
     { href: '#services',  label: 'Services' },
     { href: '#demo',      label: 'Submit' },
+    { href: 'https://www.veltrix-records.com/curator', label: 'CuratorOS', external: true },
   ];
 
   const progressPct = audioDuration ? (audioProgress / audioDuration) * 100 : 0;
@@ -373,7 +374,12 @@ function App() {
         <div className="nav-brand">VELTRIX RECORDS</div>
         <div className="nav-links">
           {navItems.map(item => (
-            <Magnetic key={item.href}><a href={item.href}>{item.label}</a></Magnetic>
+            <Magnetic key={item.href}>
+              <a href={item.href} {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                style={item.external ? { color: '#1DB954', fontWeight: 700 } : {}}>
+                {item.label}
+              </a>
+            </Magnetic>
           ))}
         </div>
         <button className={`nav-hamburger ${mobileMenuOpen ? 'open' : ''}`}
@@ -390,6 +396,8 @@ function App() {
             {navItems.map((item, i) => (
               <motion.a key={item.href} href={item.href}
                 onClick={() => setMobileMenuOpen(false)}
+                {...(item.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                style={item.external ? { color: '#1DB954', fontWeight: 700 } : {}}
                 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.06 }}>
                 {item.label}
@@ -423,6 +431,17 @@ function App() {
           <div className="line"></div>
         </motion.div>
       </header>
+
+      {/* CURATOR NOTICE */}
+      <div style={{
+        textAlign: 'center', padding: '18px 24px',
+        background: 'rgba(29,185,84,0.06)', borderTop: '1px solid rgba(29,185,84,0.15)', borderBottom: '1px solid rgba(29,185,84,0.15)',
+        fontSize: '13px', color: 'rgba(255,255,255,0.55)', letterSpacing: '0.04em',
+      }}>
+        <span style={{ color: '#1DB954', fontWeight: 700 }}>CuratorOS</span>
+        {' '}is reserved for Veltrix Records members only — it will not work unless you have been personally invited by{' '}
+        <span style={{ color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>pxroducer</span>.
+      </div>
 
       {/* MARQUEE */}
       <div className="marquee-section">
