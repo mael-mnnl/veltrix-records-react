@@ -40,7 +40,7 @@ export default function App() {
       const code   = params.get("code");
 
       if (code) {
-        window.history.replaceState({}, "", "/");
+        window.history.replaceState({}, "", "/curator");
         try {
           const t = await exchangeCodeForToken(code);
           setToken(t);
