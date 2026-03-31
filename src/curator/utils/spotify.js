@@ -89,13 +89,16 @@ async function apiFetch(urlOrPath, options = {}) {
     const spotifyMsg = body?.error?.message ?? body?.error ?? "";
     const spotifyReason = body?.error?.reason ?? "";
     console.error("[spotify] 403:", url, JSON.stringify(body));
-    // Scope-related 403s: force re-auth so the user gets a fresh token with correct scopes
+    // Write endpoints (playlist creation/modification) blocked by Spotify Dev Mode restrictions
+    if (url.includes("/playlists") || url.includes("/tracks")) {
+      throw new Error("Création impossible — Spotify a restreint les apps en mode développement. Va sur developer.spotify.com → User Management et ajoute ton compte.");
+    }
+    // Scope-related 403s on other endpoints: force re-auth
     if (
       spotifyReason === "PREMIUM_REQUIRED" ||
       spotifyMsg.toLowerCase().includes("scope") ||
       spotifyMsg.toLowerCase().includes("permission") ||
-      spotifyMsg.toLowerCase().includes("insufficient") ||
-      url.includes("/playlists")
+      spotifyMsg.toLowerCase().includes("insufficient")
     ) {
       window.dispatchEvent(new CustomEvent("spotify-reauth", { detail: { reason: spotifyMsg || "scope manquant" } }));
     }
