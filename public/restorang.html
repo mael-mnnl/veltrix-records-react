@@ -1074,23 +1074,6 @@
     display: block;
     flex-shrink: 0;
   }
-  @media (max-width: 900px) {
-    .hero, .section-problem { grid-template-columns: 1fr; padding: 60px 24px; gap: 40px; }
-    .hero-right { display: none; }
-    .feature-cards { grid-template-columns: 1fr; }
-    .section-features, .section-stats, .section-cta, .page-content, .page-header, .gaspi-page-header { padding-left: 24px; padding-right: 24px; }
-    .features-strip { flex-direction: column; padding: 24px; gap: 20px; }
-    .feature-item { border-right: none; padding: 0; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 16px; }
-    .section-stats { grid-template-columns: repeat(2,1fr); padding: 60px 24px; }
-    .wait-grid, .resa-grid, .gaspi-grid { grid-template-columns: 1fr; }
-    nav { padding: 0 16px; }
-    .nav-link { display: none; }
-    .nav-cta { display: none; }
-    .burger-btn { display: flex; }
-    footer { flex-direction: column; gap: 12px; text-align: center; padding: 32px 24px; }
-    .vote-grid { grid-template-columns: 1fr 1fr; }
-  }
-
   /* ─── BURGER MENU ─── */
   .burger-btn {
     display: none;
@@ -1181,6 +1164,24 @@
     transition: all 0.2s;
   }
   .mobile-menu-cta:hover { background: #f0f0f0; }
+
+  @media (max-width: 900px) {
+    .hero, .section-problem { grid-template-columns: 1fr; padding: 60px 24px; gap: 40px; }
+    .hero-right { display: none; }
+    .feature-cards { grid-template-columns: 1fr; }
+    .section-features, .section-stats, .section-cta, .page-content, .page-header, .gaspi-page-header { padding-left: 24px; padding-right: 24px; }
+    .features-strip { flex-direction: column; padding: 24px; gap: 20px; }
+    .feature-item { border-right: none; padding: 0; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 16px; }
+    .section-stats { grid-template-columns: repeat(2,1fr); padding: 60px 24px; }
+    .wait-grid, .resa-grid, .gaspi-grid { grid-template-columns: 1fr; }
+    nav { padding: 0 16px; }
+    .nav-link { display: none; }
+    .nav-cta { display: none; }
+    .burger-btn { display: flex; }
+    footer { flex-direction: column; gap: 12px; text-align: center; padding: 32px 24px; }
+    .vote-grid { grid-template-columns: 1fr 1fr; }
+  }
+
 </style>
 </head>
 <body>
