@@ -1085,9 +1085,102 @@
     .wait-grid, .resa-grid, .gaspi-grid { grid-template-columns: 1fr; }
     nav { padding: 0 16px; }
     .nav-link { display: none; }
+    .nav-cta { display: none; }
+    .burger-btn { display: flex; }
     footer { flex-direction: column; gap: 12px; text-align: center; padding: 32px 24px; }
     .vote-grid { grid-template-columns: 1fr 1fr; }
   }
+
+  /* ─── BURGER MENU ─── */
+  .burger-btn {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 8px;
+    transition: background 0.2s;
+  }
+  .burger-btn:hover { background: rgba(255,255,255,0.15); }
+  .burger-btn span {
+    display: block;
+    width: 22px;
+    height: 2px;
+    background: var(--blanc);
+    border-radius: 2px;
+    transition: all 0.3s ease;
+    transform-origin: center;
+  }
+  .burger-btn.open span:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+  }
+  .burger-btn.open span:nth-child(2) {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+  .burger-btn.open span:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+  }
+
+  .mobile-menu {
+    display: none;
+    position: fixed;
+    top: 64px; left: 0; right: 0;
+    background: rgba(200, 16, 46, 0.98);
+    backdrop-filter: blur(12px);
+    z-index: 99;
+    flex-direction: column;
+    padding: 12px 16px 20px;
+    gap: 6px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+    animation: slideDown 0.25s ease;
+  }
+  .mobile-menu.open { display: flex; }
+
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .mobile-menu-link {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.85);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 1rem;
+    font-weight: 500;
+    padding: 13px 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+    letter-spacing: 0.2px;
+  }
+  .mobile-menu-link:hover, .mobile-menu-link.active {
+    background: rgba(255,255,255,0.15);
+    color: var(--blanc);
+  }
+  .mobile-menu-link.active { font-weight: 700; }
+
+  .mobile-menu-cta {
+    background: var(--blanc);
+    color: var(--rouge);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 800;
+    font-size: 1rem;
+    padding: 13px 16px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    text-align: center;
+    margin-top: 6px;
+    transition: all 0.2s;
+  }
+  .mobile-menu-cta:hover { background: #f0f0f0; }
 </style>
 </head>
 <body>
@@ -1102,7 +1195,21 @@
     <button class="nav-link" onclick="showPage('antigaspi')">♻ Anti-Gaspi</button>
     <button class="nav-cta" onclick="showPage('reservation')">Réserver maintenant</button>
   </div>
+  <button class="burger-btn" id="burger-btn" onclick="toggleBurger()" aria-label="Menu">
+    <span></span>
+    <span></span>
+    <span></span>
+  </button>
 </nav>
+
+<!-- ─── MENU MOBILE ─── -->
+<div class="mobile-menu" id="mobile-menu">
+  <button class="mobile-menu-link active" id="mob-accueil" onclick="showPage('accueil')">🏠 Accueil</button>
+  <button class="mobile-menu-link" id="mob-attente" onclick="showPage('attente')">⏱ Attente en direct</button>
+  <button class="mobile-menu-link" id="mob-reservation" onclick="showPage('reservation')">🗳 Réserver</button>
+  <button class="mobile-menu-link" id="mob-antigaspi" onclick="showPage('antigaspi')">♻ Anti-Gaspi</button>
+  <button class="mobile-menu-cta" onclick="showPage('reservation')">Réserver maintenant</button>
+</div>
 
 <!-- ══════════════════════════════
      PAGE ACCUEIL
@@ -1791,7 +1898,19 @@
     const links = { accueil: 0, attente: 1, reservation: 2, antigaspi: 3 };
     const navLinks = document.querySelectorAll('.nav-link');
     if (links[id] !== undefined) navLinks[links[id]].classList.add('active');
+    // Sync mobile menu active state
+    document.querySelectorAll('.mobile-menu-link').forEach(l => l.classList.remove('active'));
+    const mobLink = document.getElementById('mob-' + id);
+    if (mobLink) mobLink.classList.add('active');
+    // Close mobile menu
+    document.getElementById('mobile-menu').classList.remove('open');
+    document.getElementById('burger-btn').classList.remove('open');
     window.scrollTo(0, 0);
+  }
+
+  function toggleBurger() {
+    document.getElementById('burger-btn').classList.toggle('open');
+    document.getElementById('mobile-menu').classList.toggle('open');
   }
 
   function toggleMenu(el) {
