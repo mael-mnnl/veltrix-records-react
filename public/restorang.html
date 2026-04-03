@@ -1,0 +1,1819 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>rest'o'Rang — La faim n'attend pas.</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;0,900;1,400&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --rouge: #C8102E;
+    --rouge-fonce: #8B0000;
+    --rouge-pale: #F5C6CB;
+    --rouge-mid: #E8193A;
+    --blanc: #FFFFFF;
+    --noir: #111111;
+    --gris-clair: #F4F4F4;
+    --gris: #888888;
+    --vert-anti: #2D7A4F;
+    --vert-clair: #E8F5EE;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', Helvetica, sans-serif;
+    background: var(--blanc);
+    color: var(--noir);
+    overflow-x: hidden;
+  }
+
+  /* ─── NAV ─── */
+  nav {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    background: rgba(200, 16, 46, 0.97);
+    backdrop-filter: blur(12px);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 40px;
+    height: 64px;
+    box-shadow: 0 2px 20px rgba(200,16,46,0.4);
+  }
+
+  .nav-logo {
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 900;
+    font-size: 1.3rem;
+    color: var(--blanc);
+    cursor: pointer;
+    letter-spacing: -0.5px;
+  }
+  .nav-logo span { color: #FFD0D0; }
+
+  .nav-links {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .nav-link {
+    background: none;
+    border: none;
+    color: rgba(255,255,255,0.8);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.2px;
+  }
+  .nav-link:hover, .nav-link.active {
+    background: rgba(255,255,255,0.15);
+    color: var(--blanc);
+  }
+  .nav-link.active {
+    background: rgba(255,255,255,0.2);
+    font-weight: 700;
+  }
+
+  .nav-cta {
+    background: var(--blanc);
+    color: var(--rouge);
+    font-weight: 700;
+    border-radius: 8px;
+    padding: 8px 20px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    border: none;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.2s;
+  }
+  .nav-cta:hover { transform: scale(1.03); }
+
+  /* ─── PAGES ─── */
+  .page { display: none; padding-top: 64px; min-height: 100vh; }
+  .page.active { display: block; animation: fadeIn 0.35s ease; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ══════════════════════════════
+     PAGE ACCUEIL
+  ══════════════════════════════ */
+
+  /* Hero */
+  .hero {
+    background: var(--rouge);
+    min-height: calc(100vh - 64px);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: center;
+    padding: 80px 80px 60px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -200px; right: -200px;
+    width: 700px; height: 700px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.04);
+    pointer-events: none;
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: -100px; left: 30%;
+    width: 400px; height: 400px;
+    border-radius: 50%;
+    background: rgba(139,0,0,0.3);
+    pointer-events: none;
+  }
+
+  .hero-left { position: relative; z-index: 1; }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.25);
+    color: var(--blanc);
+    padding: 6px 14px;
+    border-radius: 100px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 28px;
+    letter-spacing: 0.5px;
+  }
+
+  .hero-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(3.5rem, 6vw, 6rem);
+    color: var(--blanc);
+    line-height: 0.95;
+    letter-spacing: 1px;
+    margin-bottom: 24px;
+  }
+  .hero-title .accent { color: #FFD0D0; }
+
+  .hero-sub {
+    color: rgba(255,255,255,0.85);
+    font-size: 1.1rem;
+    line-height: 1.6;
+    max-width: 420px;
+    margin-bottom: 40px;
+  }
+
+  .hero-buttons {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .btn-primary {
+    background: var(--blanc);
+    color: var(--rouge);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 800;
+    font-size: 1rem;
+    padding: 14px 28px;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.2); }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--blanc);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 600;
+    font-size: 1rem;
+    padding: 14px 28px;
+    border-radius: 12px;
+    border: 2px solid rgba(255,255,255,0.5);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-outline:hover { background: rgba(255,255,255,0.1); border-color: white; }
+
+  /* Hero Phone Mockup */
+  .hero-right {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    z-index: 1;
+  }
+
+  .phone-mock {
+    width: 260px;
+    background: var(--noir);
+    border-radius: 38px;
+    padding: 10px;
+    box-shadow: 0 40px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.1);
+    transform: rotate(4deg);
+    position: relative;
+  }
+  .phone-inner {
+    background: var(--gris-clair);
+    border-radius: 30px;
+    overflow: hidden;
+    height: 480px;
+    position: relative;
+  }
+  .phone-screen-header {
+    background: var(--rouge);
+    padding: 20px 18px 16px;
+  }
+  .phone-notch {
+    width: 80px; height: 20px;
+    background: var(--noir);
+    border-radius: 10px;
+    margin: 0 auto 14px;
+  }
+  .phone-screen-title {
+    color: white;
+    font-weight: 800;
+    font-size: 1.1rem;
+  }
+  .phone-screen-sub {
+    color: rgba(255,255,255,0.8);
+    font-size: 0.75rem;
+    margin-top: 4px;
+  }
+  .phone-body {
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .phone-card {
+    background: white;
+    border-radius: 12px;
+    padding: 12px 14px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .phone-card-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .phone-card-label {
+    font-size: 0.7rem;
+    color: var(--gris);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .phone-card-value {
+    font-size: 1.4rem;
+    font-weight: 900;
+    color: var(--rouge);
+    line-height: 1;
+    margin-top: 4px;
+  }
+  .phone-card-value.green { color: var(--vert-anti); }
+  .phone-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px solid #f0f0f0;
+    font-size: 0.72rem;
+    font-weight: 500;
+  }
+  .menu-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--rouge); flex-shrink: 0; }
+  .menu-dot.green { background: var(--vert-anti); }
+
+  /* Features strip */
+  .features-strip {
+    background: var(--noir);
+    padding: 28px 80px;
+    display: flex;
+    gap: 0;
+    align-items: stretch;
+  }
+  .feature-item {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 0 32px;
+    border-right: 1px solid rgba(255,255,255,0.08);
+  }
+  .feature-item:first-child { padding-left: 0; }
+  .feature-item:last-child { border-right: none; padding-right: 0; }
+  .feature-icon {
+    font-size: 1.8rem;
+    flex-shrink: 0;
+  }
+  .feature-text strong {
+    display: block;
+    color: var(--blanc);
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+  .feature-text span {
+    color: rgba(255,255,255,0.5);
+    font-size: 0.8rem;
+  }
+
+  /* Problem section */
+  .section-problem {
+    padding: 100px 80px;
+    background: var(--blanc);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 80px;
+    align-items: center;
+  }
+  .section-tag {
+    display: inline-block;
+    background: var(--rouge-pale);
+    color: var(--rouge-fonce);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+  }
+  .section-title {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(2.5rem, 4vw, 4rem);
+    line-height: 0.95;
+    letter-spacing: 1px;
+    margin-bottom: 20px;
+  }
+  .section-body {
+    color: #555;
+    font-size: 1.05rem;
+    line-height: 1.7;
+  }
+
+  .pain-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .pain-card {
+    background: var(--gris-clair);
+    border-radius: 16px;
+    padding: 20px 24px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    border-left: 4px solid var(--rouge);
+    transition: transform 0.2s;
+  }
+  .pain-card:hover { transform: translateX(4px); }
+  .pain-emoji { font-size: 1.6rem; flex-shrink: 0; }
+  .pain-text strong { display: block; font-weight: 700; margin-bottom: 4px; }
+  .pain-text span { font-size: 0.88rem; color: var(--gris); }
+
+  /* Features Section */
+  .section-features {
+    background: var(--gris-clair);
+    padding: 100px 80px;
+  }
+  .section-header {
+    text-align: center;
+    margin-bottom: 60px;
+  }
+  .feature-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+  .feat-card {
+    background: var(--blanc);
+    border-radius: 20px;
+    padding: 36px 32px;
+    cursor: pointer;
+    transition: all 0.25s;
+    position: relative;
+    overflow: hidden;
+    border: 2px solid transparent;
+  }
+  .feat-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 20px 50px rgba(200,16,46,0.12);
+    border-color: var(--rouge-pale);
+  }
+  .feat-card-icon {
+    font-size: 2.4rem;
+    margin-bottom: 18px;
+    display: block;
+  }
+  .feat-card h3 {
+    font-weight: 800;
+    font-size: 1.2rem;
+    margin-bottom: 10px;
+  }
+  .feat-card p {
+    color: var(--gris);
+    font-size: 0.9rem;
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+  .feat-link {
+    color: var(--rouge);
+    font-weight: 700;
+    font-size: 0.88rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: inherit;
+    transition: gap 0.2s;
+  }
+  .feat-link:hover { gap: 10px; }
+  .feat-card-accent {
+    position: absolute;
+    top: 0; right: 0;
+    width: 100px; height: 100px;
+    border-radius: 0 20px 0 100%;
+    opacity: 0.07;
+  }
+  .accent-red { background: var(--rouge); }
+  .accent-green { background: var(--vert-anti); }
+
+  /* Stats */
+  .section-stats {
+    background: var(--rouge);
+    padding: 80px 80px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 40px;
+  }
+  .stat-item { text-align: center; }
+  .stat-number {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 4rem;
+    color: var(--blanc);
+    line-height: 1;
+  }
+  .stat-label {
+    color: rgba(255,255,255,0.75);
+    font-size: 0.9rem;
+    margin-top: 8px;
+    line-height: 1.4;
+  }
+
+  /* CTA bottom */
+  .section-cta {
+    padding: 100px 80px;
+    text-align: center;
+    background: var(--blanc);
+  }
+  .cta-box {
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  .cta-box .section-title { margin-bottom: 16px; }
+  .cta-box .section-body { margin-bottom: 36px; }
+
+  /* CROUS badge */
+  .crous-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    border: 2px solid var(--rouge-pale);
+    border-radius: 12px;
+    padding: 10px 20px;
+    font-size: 0.85rem;
+    color: var(--rouge-fonce);
+    font-weight: 600;
+    margin-top: 24px;
+  }
+  .crous-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--rouge); }
+
+  /* ══════════════════════════════
+     PAGE ATTENTE
+  ══════════════════════════════ */
+
+  .page-header {
+    background: linear-gradient(135deg, var(--rouge-fonce), var(--rouge));
+    padding: 60px 80px 50px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+  }
+  .page-header::after {
+    content: '';
+    position: absolute;
+    bottom: -40px; right: -40px;
+    width: 250px; height: 250px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.05);
+  }
+  .page-header-tag {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.6);
+    margin-bottom: 12px;
+  }
+  .page-header h1 {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(2.5rem, 5vw, 4.5rem);
+    letter-spacing: 1px;
+    line-height: 0.9;
+    margin-bottom: 14px;
+  }
+  .page-header p {
+    color: rgba(255,255,255,0.8);
+    font-size: 1.05rem;
+    max-width: 500px;
+    line-height: 1.5;
+  }
+
+  .page-content {
+    padding: 48px 80px 80px;
+    background: var(--gris-clair);
+    min-height: 60vh;
+  }
+
+  /* Wait page specifics */
+  .wait-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 24px;
+  }
+  .wait-main {
+    grid-column: 1 / -1;
+  }
+
+  .card {
+    background: var(--blanc);
+    border-radius: 20px;
+    padding: 28px 32px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+  }
+  .card-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--gris);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .live-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: #22C55E;
+    animation: pulse 1.5s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .big-wait {
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+    margin-bottom: 10px;
+  }
+  .big-wait-number {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 7rem;
+    line-height: 1;
+    color: var(--rouge);
+  }
+  .big-wait-unit {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--gris);
+    margin-bottom: 18px;
+  }
+  .wait-bar {
+    height: 8px;
+    background: var(--rouge-pale);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+  .wait-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--rouge), var(--rouge-mid));
+    border-radius: 10px;
+    transition: width 1s ease;
+  }
+  .wait-sub { font-size: 0.85rem; color: var(--gris); }
+
+  .ru-list { display: flex; flex-direction: column; gap: 12px; }
+  .ru-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    background: var(--gris-clair);
+    border-radius: 12px;
+    transition: all 0.2s;
+    cursor: pointer;
+  }
+  .ru-item:hover { background: var(--rouge-pale); }
+  .ru-name { font-weight: 700; font-size: 0.95rem; }
+  .ru-addr { font-size: 0.78rem; color: var(--gris); margin-top: 2px; }
+  .wait-badge {
+    background: var(--rouge);
+    color: white;
+    font-weight: 800;
+    font-size: 0.8rem;
+    padding: 4px 12px;
+    border-radius: 100px;
+  }
+  .wait-badge.ok { background: #22C55E; }
+  .wait-badge.warn { background: #F59E0B; }
+
+  /* Affluence chart */
+  .chart-bars {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    height: 100px;
+    margin-top: 8px;
+  }
+  .chart-bar-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    height: 100%;
+    justify-content: flex-end;
+  }
+  .chart-bar {
+    width: 100%;
+    border-radius: 6px 6px 0 0;
+    background: var(--rouge-pale);
+    transition: all 0.3s;
+    cursor: pointer;
+  }
+  .chart-bar.current { background: var(--rouge); }
+  .chart-bar:hover { background: var(--rouge-mid); }
+  .chart-label { font-size: 0.65rem; color: var(--gris); font-weight: 600; }
+
+  .notif-card {
+    background: linear-gradient(135deg, var(--rouge-fonce), var(--rouge));
+    border-radius: 20px;
+    padding: 28px 32px;
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+  }
+  .notif-text strong { display: block; font-size: 1.1rem; font-weight: 800; margin-bottom: 6px; }
+  .notif-text span { font-size: 0.85rem; opacity: 0.8; }
+  .btn-white {
+    background: white;
+    color: var(--rouge);
+    font-weight: 800;
+    font-size: 0.88rem;
+    padding: 12px 22px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: 'DM Sans', sans-serif;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .btn-white:hover { transform: scale(1.03); }
+
+  /* ══════════════════════════════
+     PAGE RESERVATION
+  ══════════════════════════════ */
+
+  .resa-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.5fr;
+    gap: 24px;
+  }
+
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    margin-top: 12px;
+  }
+  .cal-header {
+    text-align: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--gris);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 6px 0;
+  }
+  .cal-day {
+    text-align: center;
+    padding: 8px 4px;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .cal-day:hover { background: var(--rouge-pale); }
+  .cal-day.today { background: var(--rouge); color: white; font-weight: 700; }
+  .cal-day.selected { background: var(--rouge-fonce); color: white; font-weight: 700; }
+  .cal-day.has-slot::after {
+    content: '·';
+    display: block;
+    color: var(--rouge);
+    font-size: 1.2rem;
+    margin-top: -6px;
+  }
+  .cal-day.has-slot.today::after, .cal-day.has-slot.selected::after { color: rgba(255,255,255,0.7); }
+  .cal-day.empty { cursor: default; color: var(--rouge-pale); }
+
+  .time-slots {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .slot {
+    border: 2px solid var(--rouge-pale);
+    border-radius: 10px;
+    padding: 10px 14px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .slot:hover { border-color: var(--rouge); background: var(--rouge-pale); }
+  .slot.selected { border-color: var(--rouge); background: var(--rouge); color: white; }
+  .slot .slot-time { font-weight: 700; font-size: 0.95rem; }
+  .slot .slot-info { font-size: 0.7rem; color: inherit; opacity: 0.7; margin-top: 2px; }
+
+  .menu-day {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .menu-section-title {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-weight: 700;
+    color: var(--gris);
+    margin-bottom: 4px;
+  }
+  .menu-option {
+    border: 2px solid var(--gris-clair);
+    border-radius: 12px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .menu-option:hover { border-color: var(--rouge-pale); }
+  .menu-option.selected { border-color: var(--rouge); background: #FFF5F7; }
+  .menu-option-name { font-weight: 600; font-size: 0.92rem; }
+  .menu-option-kcal { font-size: 0.75rem; color: var(--gris); margin-top: 2px; }
+  .menu-check {
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    border: 2px solid var(--rouge-pale);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+  .menu-option.selected .menu-check {
+    background: var(--rouge);
+    border-color: var(--rouge);
+    color: white;
+    font-size: 0.75rem;
+  }
+
+  .resa-summary {
+    background: var(--noir);
+    border-radius: 20px;
+    padding: 28px 32px;
+    color: white;
+  }
+  .resa-summary-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: rgba(255,255,255,0.5);
+    margin-bottom: 20px;
+  }
+  .resa-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    font-size: 0.9rem;
+  }
+  .resa-line:last-of-type { border-bottom: none; }
+  .resa-line span:first-child { color: rgba(255,255,255,0.6); }
+  .resa-line span:last-child { font-weight: 600; }
+  .resa-price {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 2.5rem;
+    color: var(--blanc);
+    margin: 16px 0;
+  }
+  .resa-price small { font-family: 'DM Sans', sans-serif; font-size: 0.9rem; font-weight: 400; opacity: 0.6; }
+  .btn-confirm {
+    width: 100%;
+    background: var(--rouge);
+    color: white;
+    border: none;
+    border-radius: 12px;
+    padding: 16px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 800;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-top: 8px;
+  }
+  .btn-confirm:hover { background: var(--rouge-fonce); transform: translateY(-1px); }
+
+  /* vote menu */
+  .vote-section { margin-top: 24px; }
+  .vote-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .vote-item {
+    background: var(--blanc);
+    border-radius: 14px;
+    padding: 16px;
+    text-align: center;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .vote-item:hover { border-color: var(--rouge-pale); }
+  .vote-item.voted { border-color: var(--rouge); background: #FFF5F7; }
+  .vote-emoji { font-size: 1.8rem; display: block; margin-bottom: 8px; }
+  .vote-name { font-weight: 700; font-size: 0.82rem; margin-bottom: 8px; }
+  .vote-bar-wrap { background: var(--gris-clair); border-radius: 6px; height: 6px; overflow: hidden; }
+  .vote-bar-fill { height: 100%; background: var(--rouge); border-radius: 6px; }
+  .vote-count { font-size: 0.7rem; color: var(--gris); margin-top: 5px; }
+  .vote-btn {
+    margin-top: 8px;
+    background: none;
+    border: 1px solid var(--rouge-pale);
+    color: var(--rouge);
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700;
+    font-size: 0.75rem;
+    padding: 4px 12px;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .vote-btn:hover, .vote-item.voted .vote-btn { background: var(--rouge); color: white; border-color: var(--rouge); }
+
+  /* ══════════════════════════════
+     PAGE ANTI-GASPI
+  ══════════════════════════════ */
+
+  .gaspi-page-header {
+    background: linear-gradient(135deg, #1a4d32, var(--vert-anti));
+    padding: 60px 80px 50px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+  }
+  .gaspi-page-header::after {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 280px; height: 280px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.05);
+  }
+
+  .gaspi-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 24px;
+  }
+
+  .offers-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .offer-card {
+    background: var(--blanc);
+    border-radius: 16px;
+    padding: 20px 24px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    transition: all 0.2s;
+    cursor: pointer;
+    border: 2px solid transparent;
+  }
+  .offer-card:hover { transform: translateX(4px); border-color: var(--vert-clair); }
+  .offer-img {
+    width: 72px; height: 72px;
+    border-radius: 12px;
+    background: var(--vert-clair);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    flex-shrink: 0;
+  }
+  .offer-info { flex: 1; }
+  .offer-name { font-weight: 800; font-size: 1rem; margin-bottom: 4px; }
+  .offer-desc { font-size: 0.82rem; color: var(--gris); margin-bottom: 8px; }
+  .offer-meta {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .offer-tag {
+    background: var(--vert-clair);
+    color: var(--vert-anti);
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+  .offer-tag.red { background: var(--rouge-pale); color: var(--rouge-fonce); }
+  .offer-time { font-size: 0.75rem; color: var(--gris); }
+  .offer-right { text-align: right; }
+  .offer-price-old {
+    font-size: 0.8rem;
+    color: var(--gris);
+    text-decoration: line-through;
+  }
+  .offer-price-new {
+    font-size: 1.3rem;
+    font-weight: 900;
+    color: var(--vert-anti);
+  }
+  .offer-dispo {
+    font-size: 0.72rem;
+    color: var(--vert-anti);
+    font-weight: 600;
+    margin-top: 2px;
+  }
+  .btn-reserve-green {
+    background: var(--vert-anti);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700;
+    font-size: 0.82rem;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: all 0.2s;
+  }
+  .btn-reserve-green:hover { background: #1a4d32; }
+
+  /* impact sidebar */
+  .impact-card {
+    background: linear-gradient(160deg, var(--vert-anti), #1a4d32);
+    border-radius: 20px;
+    padding: 28px;
+    color: white;
+    margin-bottom: 20px;
+  }
+  .impact-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: rgba(255,255,255,0.6);
+    margin-bottom: 16px;
+  }
+  .impact-stat { margin-bottom: 16px; }
+  .impact-number {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 3rem;
+    line-height: 1;
+    color: #A8E6C0;
+  }
+  .impact-label { font-size: 0.82rem; opacity: 0.8; margin-top: 2px; }
+  .impact-divider { border: none; border-top: 1px solid rgba(255,255,255,0.1); margin: 16px 0; }
+
+  .eco-tip {
+    background: var(--vert-clair);
+    border-radius: 14px;
+    padding: 20px;
+    border-left: 4px solid var(--vert-anti);
+  }
+  .eco-tip-title { font-weight: 800; font-size: 0.9rem; color: var(--vert-anti); margin-bottom: 8px; }
+  .eco-tip p { font-size: 0.85rem; color: #3a5a45; line-height: 1.5; }
+
+  /* ─── FOOTER ─── */
+  footer {
+    background: var(--noir);
+    color: white;
+    padding: 40px 80px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  footer .footer-logo { font-weight: 900; font-size: 1.1rem; }
+  footer .footer-logo span { color: var(--rouge); }
+  footer small { color: rgba(255,255,255,0.4); font-size: 0.8rem; }
+
+  .dish-img {
+    width: 64px;
+    height: 64px;
+    object-fit: cover;
+    border-radius: 10px;
+    background: var(--gris-clair);
+    display: block;
+    flex-shrink: 0;
+  }
+  .dish-img-sm {
+    width: 48px;
+    height: 48px;
+    object-fit: cover;
+    border-radius: 8px;
+    background: var(--gris-clair);
+    display: block;
+    flex-shrink: 0;
+  }
+  @media (max-width: 900px) {
+    .hero, .section-problem { grid-template-columns: 1fr; padding: 60px 24px; gap: 40px; }
+    .hero-right { display: none; }
+    .feature-cards { grid-template-columns: 1fr; }
+    .section-features, .section-stats, .section-cta, .page-content, .page-header, .gaspi-page-header { padding-left: 24px; padding-right: 24px; }
+    .features-strip { flex-direction: column; padding: 24px; gap: 20px; }
+    .feature-item { border-right: none; padding: 0; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 16px; }
+    .section-stats { grid-template-columns: repeat(2,1fr); padding: 60px 24px; }
+    .wait-grid, .resa-grid, .gaspi-grid { grid-template-columns: 1fr; }
+    nav { padding: 0 16px; }
+    .nav-link { display: none; }
+    footer { flex-direction: column; gap: 12px; text-align: center; padding: 32px 24px; }
+    .vote-grid { grid-template-columns: 1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ─── NAVIGATION ─── -->
+<nav>
+  <div class="nav-logo" onclick="showPage('accueil')">rest'<span>o</span>'Rang</div>
+  <div class="nav-links">
+    <button class="nav-link active" onclick="showPage('accueil')">Accueil</button>
+    <button class="nav-link" onclick="showPage('attente')">⏱ Attente</button>
+    <button class="nav-link" onclick="showPage('reservation')">🗳 Réserver</button>
+    <button class="nav-link" onclick="showPage('antigaspi')">♻ Anti-Gaspi</button>
+    <button class="nav-cta" onclick="showPage('reservation')">Réserver maintenant</button>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════
+     PAGE ACCUEIL
+══════════════════════════════ -->
+<div class="page active" id="page-accueil">
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-left">
+      <div class="hero-badge">🤝 En partenariat avec le CROUS</div>
+      <h1 class="hero-title">
+        LA FAIM<br>N'ATTEND<br><span class="accent">PAS.</span>
+      </h1>
+      <p class="hero-sub">
+        rest'o'Rang, c'est l'appli qui te dit en temps réel combien de temps tu vas attendre,
+        ce qu'il y a au menu aujourd'hui, et comment éviter le gaspillage alimentaire au RU.
+      </p>
+      <div class="hero-buttons">
+        <button class="btn-primary" onclick="showPage('attente')">⏱ Voir l'attente en direct</button>
+        <button class="btn-outline" onclick="showPage('reservation')">Réserver mon repas</button>
+      </div>
+    </div>
+    <div class="hero-right">
+      <div class="phone-mock">
+        <div class="phone-inner">
+          <div class="phone-screen-header">
+            <div class="phone-notch"></div>
+            <div class="phone-screen-title">rest'o'Rang</div>
+            <div class="phone-screen-sub">Resto Universitaire · Lyon</div>
+          </div>
+          <div class="phone-body">
+            <div class="phone-card">
+              <div class="phone-card-row">
+                <span class="phone-card-label">⏱ Attente estimée</span>
+                <span style="font-size:0.65rem;color:#22C55E;font-weight:700;">● EN DIRECT</span>
+              </div>
+              <div class="phone-card-value">8 min</div>
+            </div>
+            <div class="phone-card">
+              <div class="phone-card-label">🍽 Menu du jour</div>
+              <div class="phone-menu-item"><span class="menu-dot"></span> Bœuf bourguignon</div>
+              <div class="phone-menu-item"><span class="menu-dot"></span> Gratin dauphinois</div>
+              <div class="phone-menu-item"><span class="menu-dot green"></span> Salade niçoise ♻</div>
+            </div>
+            <div class="phone-card">
+              <div class="phone-card-row">
+                <span class="phone-card-label">♻ Anti-gaspi</span>
+                <span style="font-size:0.65rem;background:#E8F5EE;color:#2D7A4F;font-weight:700;padding:2px 8px;border-radius:10px;">3 offres</span>
+              </div>
+              <div class="phone-card-value green">−30%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features strip -->
+  <div class="features-strip">
+    <div class="feature-item">
+      <span class="feature-icon">⏱</span>
+      <div class="feature-text">
+        <strong>Temps réel</strong>
+        <span>Attente mise à jour en continu</span>
+      </div>
+    </div>
+    <div class="feature-item">
+      <span class="feature-icon">🗳</span>
+      <div class="feature-text">
+        <strong>Vote menus</strong>
+        <span>Influence les plats de demain</span>
+      </div>
+    </div>
+    <div class="feature-item">
+      <span class="feature-icon">♻</span>
+      <div class="feature-text">
+        <strong>Anti-gaspi</strong>
+        <span>Repas à prix réduit avant fermeture</span>
+      </div>
+    </div>
+    <div class="feature-item">
+      <span class="feature-icon">📅</span>
+      <div class="feature-text">
+        <strong>Réservation</strong>
+        <span>Anticipe, évite la file</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Problem section -->
+  <section class="section-problem">
+    <div>
+      <div class="section-tag">Le problème</div>
+      <h2 class="section-title">CHAQUE MIDI,<br>C'EST LA MÊME<br>GALÈRE.</h2>
+      <p class="section-body">
+        Des milliers d'étudiants font face chaque midi aux mêmes frustrations au restaurant universitaire.
+        rest'o'Rang naît d'un constat simple : tu mérites de savoir ce qui t'attend avant de te déplacer.
+      </p>
+    </div>
+    <div class="pain-cards">
+      <div class="pain-card">
+        <span class="pain-emoji">😤</span>
+        <div class="pain-text">
+          <strong>File d'attente surprise</strong>
+          <span>Tu arrives et découvres 40 personnes devant toi. Ta pause déjeuner est déjà compromise.</span>
+        </div>
+      </div>
+      <div class="pain-card">
+        <span class="pain-emoji">😔</span>
+        <div class="pain-text">
+          <strong>Plat favori épuisé</strong>
+          <span>Quand tu arrives enfin à la caisse, ton plat est terminé. Tu n'avais aucun moyen de le savoir.</span>
+        </div>
+      </div>
+      <div class="pain-card">
+        <span class="pain-emoji">🗑</span>
+        <div class="pain-text">
+          <strong>Gaspillage alimentaire</strong>
+          <span>Des centaines de repas jetés chaque soir faute d'anticipation. Un problème à la fois humain et écologique.</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features cards -->
+  <section class="section-features">
+    <div class="section-header">
+      <div class="section-tag">La solution</div>
+      <h2 class="section-title">TOUT CE QU'IL TE FAUT,<br>EN UNE SEULE APPLI</h2>
+    </div>
+    <div class="feature-cards">
+      <div class="feat-card" onclick="showPage('attente')">
+        <div class="feat-card-accent accent-red"></div>
+        <span class="feat-card-icon">⏱</span>
+        <h3>Attente en temps réel</h3>
+        <p>Consulte l'affluence actuelle de ton RU avant de partir. Évite les pics de midi et optimise ta pause.</p>
+        <button class="feat-link">Voir l'attente → </button>
+      </div>
+      <div class="feat-card" onclick="showPage('reservation')">
+        <div class="feat-card-accent accent-red"></div>
+        <span class="feat-card-icon">🗳</span>
+        <h3>Vote & Réservation</h3>
+        <p>Consulte le menu du jour, vote pour les plats de demain et réserve ton repas pour passer en priorité.</p>
+        <button class="feat-link">Réserver → </button>
+      </div>
+      <div class="feat-card" onclick="showPage('antigaspi')">
+        <div class="feat-card-accent accent-green"></div>
+        <span class="feat-card-icon">♻</span>
+        <h3>Anti-Gaspillage</h3>
+        <p>Des repas invendus à prix réduit avant la fermeture du RU. Bon pour ton porte-monnaie et pour la planète.</p>
+        <button class="feat-link">Voir les offres → </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats -->
+  <div class="section-stats">
+    <div class="stat-item">
+      <div class="stat-number">8 min</div>
+      <div class="stat-label">d'attente économisée<br>en moyenne</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-number">−30%</div>
+      <div class="stat-label">sur les repas<br>anti-gaspi</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-number">18–25</div>
+      <div class="stat-label">ans, notre cible<br>étudiante</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-number">CROUS</div>
+      <div class="stat-label">partenaire officiel<br>& garant</div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <section class="section-cta">
+    <div class="cta-box">
+      <div class="section-tag">Télécharge l'appli</div>
+      <h2 class="section-title">SAIS-TU COMBIEN<br>DE TEMPS TU VAS<br>ATTENDRE ?</h2>
+      <p class="section-body">Rejoins les étudiants qui n'attendent plus pour rien. Disponible sur iOS et Android, gratuitement.</p>
+      <div class="hero-buttons" style="justify-content:center; margin-top:32px;">
+        <button class="btn-primary" style="background:var(--rouge);color:white;">📱 Télécharger sur iOS</button>
+        <button class="btn-primary" style="background:var(--noir);color:white;">📱 Disponible sur Android</button>
+      </div>
+      <div class="crous-badge">
+        <span class="crous-dot"></span>
+        Développé en partenariat officiel avec le CROUS · BUT Informatique S2 2026
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="footer-logo">rest'<span>o</span>'Rang</div>
+    <small>BUT Informatique · S2 2026 · MENNAL Mael & SEMBEL Apollinaire</small>
+    <small>© 2026 En partenariat avec le CROUS</small>
+  </footer>
+</div>
+
+<!-- ══════════════════════════════
+     PAGE ATTENTE
+══════════════════════════════ -->
+<div class="page" id="page-attente">
+  <div class="page-header">
+    <div class="page-header-tag">⏱ Temps réel</div>
+    <h1>FILE D'ATTENTE</h1>
+    <p>Consulte l'affluence en direct avant de te déplacer. Données mises à jour toutes les 2 minutes.</p>
+  </div>
+
+  <div class="page-content">
+    <div class="wait-grid">
+
+      <!-- Attente principale -->
+      <div class="card wait-main">
+        <div class="card-title">
+          <span class="live-dot"></span>
+          Attente estimée — RU Rockefeller
+        </div>
+        <div class="big-wait">
+          <span class="big-wait-number">8</span>
+          <span class="big-wait-unit">minutes</span>
+        </div>
+        <div class="wait-bar">
+          <div class="wait-bar-fill" style="width:30%"></div>
+        </div>
+        <p class="wait-sub">Affluence : <strong>Faible</strong> · 12 personnes actuellement en file · Dernière mise à jour il y a 1 min</p>
+      </div>
+
+      <!-- Autres RU -->
+      <div class="card">
+        <div class="card-title">📍 Autres restaurants universitaires</div>
+        <div class="ru-list">
+          <div class="ru-item">
+            <div>
+              <div class="ru-name">RU Rockefeller</div>
+              <div class="ru-addr">8 av. Rockefeller, Lyon 8e</div>
+            </div>
+            <span class="wait-badge ok">8 min</span>
+          </div>
+          <div class="ru-item">
+            <div>
+              <div class="ru-name">RU La Doua</div>
+              <div class="ru-addr">43 bd du 11 novembre, Villeurbanne</div>
+            </div>
+            <span class="wait-badge warn">22 min</span>
+          </div>
+          <div class="ru-item">
+            <div>
+              <div class="ru-name">RU Santé</div>
+              <div class="ru-addr">8 av. Rockefeller — Bât. B</div>
+            </div>
+            <span class="wait-badge">35 min</span>
+          </div>
+          <div class="ru-item">
+            <div>
+              <div class="ru-name">RU Bron</div>
+              <div class="ru-addr">5 av. Pierre Mendès-France, Bron</div>
+            </div>
+            <span class="wait-badge ok">5 min</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Affluence du jour -->
+      <div class="card">
+        <div class="card-title">📊 Affluence aujourd'hui — RU Rockefeller</div>
+        <div class="chart-bars">
+          <div class="chart-bar-wrap">
+            <div class="chart-bar" style="height:20%"></div>
+            <span class="chart-label">11h</span>
+          </div>
+          <div class="chart-bar-wrap">
+            <div class="chart-bar" style="height:45%"></div>
+            <span class="chart-label">11h30</span>
+          </div>
+          <div class="chart-bar-wrap">
+            <div class="chart-bar" style="height:80%"></div>
+            <span class="chart-label">12h</span>
+          </div>
+          <div class="chart-bar-wrap">
+            <div class="chart-bar current" style="height:30%"></div>
+            <span class="chart-label" style="color:var(--rouge);font-weight:800;">12h30</span>
+          </div>
+          <div class="chart-bar-wrap">
+            <div class="chart-bar" style="height:70%"></div>
+            <span class="chart-label">13h</span>
+          </div>
+          <div class="chart-bar-wrap">
+            <div class="chart-bar" style="height:55%"></div>
+            <span class="chart-label">13h30</span>
+          </div>
+          <div class="chart-bar-wrap">
+            <div class="chart-bar" style="height:15%"></div>
+            <span class="chart-label">14h</span>
+          </div>
+        </div>
+        <p class="wait-sub" style="margin-top:12px;">Le pic d'affluence est généralement entre 12h et 12h30. Arrive avant ou après pour éviter la queue.</p>
+      </div>
+
+      <!-- Notification -->
+      <div class="notif-card wait-main">
+        <div class="notif-text">
+          <strong>🔔 Alerte personnalisée</strong>
+          <span>Reçois une notification quand l'attente passe sous les 5 minutes au RU de ton choix.</span>
+        </div>
+        <button class="btn-white">Activer les alertes</button>
+      </div>
+
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-logo">rest'<span>o</span>'Rang</div>
+    <small>BUT Informatique · S2 2026 · MENNAL Mael & SEMBEL Apollinaire</small>
+    <small>© 2026 En partenariat avec le CROUS</small>
+  </footer>
+</div>
+
+<!-- ══════════════════════════════
+     PAGE RESERVATION
+══════════════════════════════ -->
+<div class="page" id="page-reservation">
+  <div class="page-header">
+    <div class="page-header-tag">🗳 Vote & Réservation</div>
+    <h1>RÉSERVE TON REPAS</h1>
+    <p>Choisis ton créneau, consulte le menu et vote pour les plats de demain.</p>
+  </div>
+
+  <div class="page-content">
+    <div class="resa-grid">
+
+      <div style="display:flex;flex-direction:column;gap:24px;">
+
+        <!-- Calendrier -->
+        <div class="card">
+          <div class="card-title">📅 Choisis une date</div>
+          <div class="calendar-grid">
+            <div class="cal-header">Lun</div>
+            <div class="cal-header">Mar</div>
+            <div class="cal-header">Mer</div>
+            <div class="cal-header">Jeu</div>
+            <div class="cal-header">Ven</div>
+            <div class="cal-header">Sam</div>
+            <div class="cal-header">Dim</div>
+
+            <div class="cal-day empty">30</div>
+            <div class="cal-day empty">31</div>
+            <div class="cal-day has-slot">1</div>
+            <div class="cal-day has-slot">2</div>
+            <div class="cal-day has-slot">3</div>
+            <div class="cal-day">4</div>
+            <div class="cal-day">5</div>
+            <div class="cal-day has-slot">6</div>
+            <div class="cal-day has-slot">7</div>
+            <div class="cal-day has-slot">8</div>
+            <div class="cal-day has-slot">9</div>
+            <div class="cal-day has-slot selected">10</div>
+            <div class="cal-day">11</div>
+            <div class="cal-day">12</div>
+            <div class="cal-day has-slot">13</div>
+            <div class="cal-day has-slot today">14</div>
+            <div class="cal-day has-slot">15</div>
+            <div class="cal-day has-slot">16</div>
+            <div class="cal-day has-slot">17</div>
+            <div class="cal-day">18</div>
+            <div class="cal-day">19</div>
+          </div>
+        </div>
+
+        <!-- Créneau -->
+        <div class="card">
+          <div class="card-title">🕐 Choisis un créneau</div>
+          <div class="time-slots">
+            <div class="slot">
+              <div class="slot-time">11h30</div>
+              <div class="slot-info">12 places dispo</div>
+            </div>
+            <div class="slot selected">
+              <div class="slot-time">12h00</div>
+              <div class="slot-info">8 places dispo</div>
+            </div>
+            <div class="slot">
+              <div class="slot-time">12h30</div>
+              <div class="slot-info">Presque complet</div>
+            </div>
+            <div class="slot">
+              <div class="slot-time">13h00</div>
+              <div class="slot-info">20 places dispo</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Menu -->
+        <div class="card">
+          <div class="card-title">🍽 Menu du jeudi 10 avril</div>
+          <div class="menu-day">
+            <div class="menu-section-title">Plat principal</div>
+            <div class="menu-option selected" onclick="toggleMenu(this)">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <img src="" alt="Bœuf bourguignon" class="dish-img-sm">
+                <div>
+                  <div class="menu-option-name">Bœuf bourguignon</div>
+                  <div class="menu-option-kcal">650 kcal · Avec pommes de terre</div>
+                </div>
+              </div>
+              <div class="menu-check">✓</div>
+            </div>
+            <div class="menu-option" onclick="toggleMenu(this)">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <img src="" alt="Filet de merlu citronné" class="dish-img-sm">
+                <div>
+                  <div class="menu-option-name">Filet de merlu citronné</div>
+                  <div class="menu-option-kcal">420 kcal · Avec riz basmati</div>
+                </div>
+              </div>
+              <div class="menu-check"></div>
+            </div>
+            <div class="menu-option" onclick="toggleMenu(this)">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <img src="" alt="Gratin de légumes" class="dish-img-sm">
+                <div>
+                  <div class="menu-option-name">Gratin de légumes (végan)</div>
+                  <div class="menu-option-kcal">380 kcal · Sans gluten</div>
+                </div>
+              </div>
+              <div class="menu-check"></div>
+            </div>
+
+            <div class="menu-section-title" style="margin-top:8px;">Dessert</div>
+            <div class="menu-option selected" onclick="toggleMenu(this)">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <img src="" alt="Crème caramel" class="dish-img-sm">
+                <div>
+                  <div class="menu-option-name">Crème caramel</div>
+                  <div class="menu-option-kcal">220 kcal</div>
+                </div>
+              </div>
+              <div class="menu-check">✓</div>
+            </div>
+            <div class="menu-option" onclick="toggleMenu(this)">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <img src="" alt="Salade de fruits frais" class="dish-img-sm">
+                <div>
+                  <div class="menu-option-name">Salade de fruits frais</div>
+                  <div class="menu-option-kcal">120 kcal</div>
+                </div>
+              </div>
+              <div class="menu-check"></div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right column -->
+      <div style="display:flex;flex-direction:column;gap:24px;">
+
+        <!-- Résumé réservation -->
+        <div class="resa-summary">
+          <div class="resa-summary-title">Récapitulatif</div>
+          <div class="resa-line">
+            <span>Restaurant</span>
+            <span>RU Rockefeller</span>
+          </div>
+          <div class="resa-line">
+            <span>Date</span>
+            <span>Jeudi 10 avril 2026</span>
+          </div>
+          <div class="resa-line">
+            <span>Créneau</span>
+            <span>12h00</span>
+          </div>
+          <div class="resa-line">
+            <span>Plat</span>
+            <span>Bœuf bourguignon</span>
+          </div>
+          <div class="resa-line">
+            <span>Dessert</span>
+            <span>Crème caramel</span>
+          </div>
+          <div class="resa-price">3,30 € <small>/ tarif étudiant CROUS</small></div>
+          <button class="btn-confirm">✅ Confirmer la réservation</button>
+          <p style="font-size:0.75rem;color:rgba(255,255,255,0.4);margin-top:10px;text-align:center;">Tu peux annuler jusqu'à 1h avant ton créneau</p>
+        </div>
+
+        <!-- Vote menus demain -->
+        <div class="card vote-section">
+          <div class="card-title">🗳 Vote — Menu de demain</div>
+          <p style="font-size:0.85rem;color:var(--gris);margin-bottom:4px;">Aide les cuisiniers à planifier en votant pour le plat que tu voudrais demain.</p>
+          <div class="vote-grid">
+            <div class="vote-item voted" onclick="toggleVote(this)">
+              <img src="" alt="Poulet rôti" class="dish-img-sm" style="margin:0 auto 8px;">
+              <div class="vote-name">Poulet rôti</div>
+              <div class="vote-bar-wrap"><div class="vote-bar-fill" style="width:62%"></div></div>
+              <div class="vote-count">62 votes</div>
+              <button class="vote-btn">✓ Voté</button>
+            </div>
+            <div class="vote-item" onclick="toggleVote(this)">
+              <img src="" alt="Pizza maison" class="dish-img-sm" style="margin:0 auto 8px;">
+              <div class="vote-name">Pizza maison</div>
+              <div class="vote-bar-wrap"><div class="vote-bar-fill" style="width:48%"></div></div>
+              <div class="vote-count">48 votes</div>
+              <button class="vote-btn">Voter</button>
+            </div>
+            <div class="vote-item" onclick="toggleVote(this)">
+              <img src="" alt="Salade césar" class="dish-img-sm" style="margin:0 auto 8px;">
+              <div class="vote-name">Salade césar</div>
+              <div class="vote-bar-wrap"><div class="vote-bar-fill" style="width:24%"></div></div>
+              <div class="vote-count">24 votes</div>
+              <button class="vote-btn">Voter</button>
+            </div>
+            <div class="vote-item" onclick="toggleVote(this)">
+              <img src="" alt="Pâtes bolognaise" class="dish-img-sm" style="margin:0 auto 8px;">
+              <div class="vote-name">Pâtes bolognaise</div>
+              <div class="vote-bar-wrap"><div class="vote-bar-fill" style="width:55%"></div></div>
+              <div class="vote-count">55 votes</div>
+              <button class="vote-btn">Voter</button>
+            </div>
+            <div class="vote-item" onclick="toggleVote(this)">
+              <img src="" alt="Saumon grillé" class="dish-img-sm" style="margin:0 auto 8px;">
+              <div class="vote-name">Saumon grillé</div>
+              <div class="vote-bar-wrap"><div class="vote-bar-fill" style="width:38%"></div></div>
+              <div class="vote-count">38 votes</div>
+              <button class="vote-btn">Voter</button>
+            </div>
+            <div class="vote-item" onclick="toggleVote(this)">
+              <img src="" alt="Tacos maison" class="dish-img-sm" style="margin:0 auto 8px;">
+              <div class="vote-name">Tacos maison</div>
+              <div class="vote-bar-wrap"><div class="vote-bar-fill" style="width:71%"></div></div>
+              <div class="vote-count">71 votes</div>
+              <button class="vote-btn">Voter</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-logo">rest'<span>o</span>'Rang</div>
+    <small>BUT Informatique · S2 2026 · MENNAL Mael & SEMBEL Apollinaire</small>
+    <small>© 2026 En partenariat avec le CROUS</small>
+  </footer>
+</div>
+
+<!-- ══════════════════════════════
+     PAGE ANTI-GASPI
+══════════════════════════════ -->
+<div class="page" id="page-antigaspi">
+  <div class="gaspi-page-header">
+    <div class="page-header-tag">♻ Anti-Gaspillage</div>
+    <h1 style="font-family:'Bebas Neue';font-size:clamp(2.5rem,5vw,4.5rem);letter-spacing:1px;line-height:0.9;margin-bottom:14px;">REPAS<br>ANTI-GASPI</h1>
+    <p>Des repas invendus à prix réduit, disponibles 30 min avant la fermeture du RU. Bon pour toi, bon pour la planète.</p>
+  </div>
+
+  <div class="page-content" style="background:var(--gris-clair);">
+    <div class="gaspi-grid">
+
+      <!-- Offres -->
+      <div>
+        <div class="card-title" style="margin-bottom:16px;">🍱 Offres disponibles ce soir — avant 14h00</div>
+        <div class="offers-list">
+
+          <div class="offer-card">
+            <img src="" alt="Pot-au-feu du midi" class="dish-img">
+            <div class="offer-info">
+              <div class="offer-name">Pot-au-feu du midi</div>
+              <div class="offer-desc">Bœuf, légumes de saison, bouillon maison. 2 portions restantes.</div>
+              <div class="offer-meta">
+                <span class="offer-tag">♻ Anti-gaspi</span>
+                <span class="offer-tag red">⚡ 2 restants</span>
+                <span class="offer-time">Jusqu'à 13h45</span>
+              </div>
+              <button class="btn-reserve-green">Réserver cette offre</button>
+            </div>
+            <div class="offer-right">
+              <div class="offer-price-old">3,30 €</div>
+              <div class="offer-price-new">2,30 €</div>
+              <div class="offer-dispo">−30%</div>
+            </div>
+          </div>
+
+          <div class="offer-card">
+            <img src="" alt="Gratin de pâtes boulangère" class="dish-img">
+            <div class="offer-info">
+              <div class="offer-name">Gratin de pâtes boulangère</div>
+              <div class="offer-desc">Pâtes gratinées au fromage, lardons et crème fraîche. 5 portions.</div>
+              <div class="offer-meta">
+                <span class="offer-tag">♻ Anti-gaspi</span>
+                <span class="offer-time">Jusqu'à 13h45</span>
+              </div>
+              <button class="btn-reserve-green">Réserver cette offre</button>
+            </div>
+            <div class="offer-right">
+              <div class="offer-price-old">3,30 €</div>
+              <div class="offer-price-new">2,30 €</div>
+              <div class="offer-dispo">−30%</div>
+            </div>
+          </div>
+
+          <div class="offer-card">
+            <img src="" alt="Salade composée niçoise" class="dish-img">
+            <div class="offer-info">
+              <div class="offer-name">Salade composée niçoise</div>
+              <div class="offer-desc">Thon, tomates, œufs durs, olives, haricots verts. 8 portions.</div>
+              <div class="offer-meta">
+                <span class="offer-tag">♻ Anti-gaspi</span>
+                <span class="offer-tag" style="background:#FFF3CD;color:#856404;">🌿 Végétarien</span>
+                <span class="offer-time">Jusqu'à 13h45</span>
+              </div>
+              <button class="btn-reserve-green">Réserver cette offre</button>
+            </div>
+            <div class="offer-right">
+              <div class="offer-price-old">3,30 €</div>
+              <div class="offer-price-new">2,30 €</div>
+              <div class="offer-dispo">−30%</div>
+            </div>
+          </div>
+
+          <div class="offer-card" style="opacity:0.5;pointer-events:none;">
+            <img src="" alt="Crème brûlée vanille" class="dish-img">
+            <div class="offer-info">
+              <div class="offer-name">Crème brûlée vanille</div>
+              <div class="offer-desc">Dessert du jour — déjà réservé</div>
+              <div class="offer-meta">
+                <span class="offer-tag red">✗ Épuisé</span>
+              </div>
+            </div>
+            <div class="offer-right">
+              <div class="offer-price-old">1,10 €</div>
+              <div class="offer-price-new" style="color:var(--gris);">Épuisé</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Sidebar -->
+      <div>
+        <div class="impact-card">
+          <div class="impact-title">🌍 Ton impact aujourd'hui</div>
+          <div class="impact-stat">
+            <div class="impact-number">340</div>
+            <div class="impact-label">repas sauvés cette semaine<br>sur le RU Rockefeller</div>
+          </div>
+          <hr class="impact-divider">
+          <div class="impact-stat">
+            <div class="impact-number">127 kg</div>
+            <div class="impact-label">de nourriture non gaspillée<br>ce mois-ci</div>
+          </div>
+          <hr class="impact-divider">
+          <div class="impact-stat">
+            <div class="impact-number">254 €</div>
+            <div class="impact-label">économisés par les étudiants<br>grâce aux offres anti-gaspi</div>
+          </div>
+        </div>
+
+        <div class="eco-tip">
+          <div class="eco-tip-title">💡 Le savais-tu ?</div>
+          <p>En France, les restaurants universitaires gaspillent en moyenne <strong>30 g de nourriture par plateau</strong>. rest'o'Rang aide à réduire ce chiffre en anticipant la demande et en valorisant les invendus.</p>
+        </div>
+
+        <div class="card" style="margin-top:20px;">
+          <div class="card-title">🔔 Alertes anti-gaspi</div>
+          <p style="font-size:0.85rem;color:var(--gris);margin-bottom:16px;">Reçois une notification dès que de nouvelles offres anti-gaspi sont disponibles.</p>
+          <button class="btn-confirm" style="margin-top:0;">Activer les alertes ♻</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-logo">rest'<span>o</span>'Rang</div>
+    <small>BUT Informatique · S2 2026 · MENNAL Mael & SEMBEL Apollinaire</small>
+    <small>© 2026 En partenariat avec le CROUS</small>
+  </footer>
+</div>
+
+<script>
+  function showPage(id) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+    document.getElementById('page-' + id).classList.add('active');
+    const links = { accueil: 0, attente: 1, reservation: 2, antigaspi: 3 };
+    const navLinks = document.querySelectorAll('.nav-link');
+    if (links[id] !== undefined) navLinks[links[id]].classList.add('active');
+    window.scrollTo(0, 0);
+  }
+
+  function toggleMenu(el) {
+    const parent = el.closest('.menu-day');
+    parent.querySelectorAll('.menu-option').forEach(o => {
+      o.classList.remove('selected');
+      o.querySelector('.menu-check').textContent = '';
+    });
+    el.classList.add('selected');
+    el.querySelector('.menu-check').textContent = '✓';
+  }
+
+  function toggleVote(el) {
+    const grid = el.closest('.vote-grid');
+    grid.querySelectorAll('.vote-item').forEach(v => {
+      v.classList.remove('voted');
+      v.querySelector('.vote-btn').textContent = 'Voter';
+    });
+    el.classList.add('voted');
+    el.querySelector('.vote-btn').textContent = '✓ Voté';
+  }
+</script>
+
+</body>
+</html>
