@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>rest'o'Rang — La faim n'attend pas.</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;0,900;1,400&family=Bebas+Neue&family=Anton&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,700;0,900;1,400&family=Bebas+Neue&family=Anton&family=Poppins:wght@900&display=swap" rel="stylesheet">
 <style>
   :root {
     --rouge: #BF001A;
@@ -173,20 +173,19 @@
   }
 
   .hero-title {
-    font-family: 'Anton', sans-serif;
-    font-size: clamp(4rem, 7.5vw, 8rem);
+    font-family: 'Poppins', sans-serif;
+    font-weight: 900;
+    font-size: clamp(3.5rem, 6.5vw, 7rem);
     color: var(--blanc);
-    line-height: 0.92;
-    letter-spacing: 1px;
+    line-height: 0.95;
+    letter-spacing: -1px;
     margin-bottom: 24px;
-    text-transform: uppercase;
-    /* Légère irrégularité : ombre décalée style affiche */
+    text-transform: none;
     text-shadow: 4px 4px 0px rgba(80,0,10,0.5);
   }
   .hero-title .accent {
     color: #FFD0D0;
     display: inline-block;
-    transform: skewX(-1.5deg);
   }
 
   .hero-sub {
@@ -1301,7 +1300,7 @@
     <div class="hero-left">
       <div class="hero-badge">🤝 En partenariat avec le CROUS</div>
       <h1 class="hero-title">
-        LA FAIM<br>N'ATTEND<br><span class="accent">PAS.</span>
+        La faim<br>n'attend<br><span class="accent">pas.</span>
       </h1>
       <p class="hero-sub">
         rest'o'Rang, c'est l'appli qui te dit en temps réel combien de temps tu vas attendre,
