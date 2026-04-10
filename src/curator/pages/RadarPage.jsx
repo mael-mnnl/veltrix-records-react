@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect, Fragment, useMemo } from "react";
 import {
   searchArtist, getArtistAlbums, getAlbumTracks, getTrackById,
   getAllPlaylists, addTrackToPlaylist,
@@ -23,6 +23,15 @@ const d500  = () => delay(500);
 function isWithin30Days(dateStr) {
   const ts = new Date(dateStr).getTime();
   return !isNaN(ts) && Date.now() - ts <= 30 * 86_400_000;
+}
+
+function fmtRelativeDate(dateStr) {
+  const ms   = Date.now() - new Date(dateStr).getTime();
+  const days = Math.floor(ms / 86_400_000);
+  if (days === 0) return "aujourd'hui";
+  if (days === 1) return "hier";
+  if (days < 30)  return `il y a ${days}j`;
+  return new Date(dateStr).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" });
 }
 async function imageToBase64(url) {
   const res  = await fetch(url);
@@ -83,7 +92,30 @@ export default function RadarPage() {
   const [bulkProgress, setBulkProgress] = useState(null);
   const [expandedId,   setExpandedId]   = useState(null);
   const [copiedField,  setCopiedField]  = useState(null);
+  const [sortBy,       setSortBy]       = useState("popular"); // popular | recent | trending | less2w
+  const [dateFilter,   setDateFilter]   = useState("all");     // all | 14d | 30d
   const { toast, show } = useToast();
+
+  const MS14 = 14 * 86_400_000;
+  const MS30 = 30 * 86_400_000;
+
+  const displayed = useMemo(() => {
+    const now = Date.now();
+    let list = [...releases];
+    // Date pill filter
+    if      (dateFilter === "14d") list = list.filter(r => now - new Date(r.releaseDate).getTime() <= MS14);
+    else if (dateFilter === "30d") list = list.filter(r => now - new Date(r.releaseDate).getTime() <= MS30);
+    // Sort (trending / less2w also add their own 14d filter)
+    switch (sortBy) {
+      case "popular":   list.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0)); break;
+      case "recent":    list.sort((a, b) => new Date(b.releaseDate) - new Date(a.releaseDate)); break;
+      case "trending":  list = list.filter(r => now - new Date(r.releaseDate).getTime() <= MS14);
+                        list.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0)); break;
+      case "less2w":    list = list.filter(r => now - new Date(r.releaseDate).getTime() <= MS14);
+                        list.sort((a, b) => new Date(b.releaseDate) - new Date(a.releaseDate)); break;
+    }
+    return list;
+  }, [releases, sortBy, dateFilter]);
 
   // ── Mount: load from cache only, zero API calls ──────────────────────────
   useEffect(() => {
@@ -261,12 +293,12 @@ export default function RadarPage() {
   }
 
   async function createAll() {
-    if (!releases.length) return;
-    setBulkProgress({ done: 0, total: releases.length });
-    for (let i = 0; i < releases.length; i++) {
-      await createAutoPlaylist(releases[i]);
-      setBulkProgress({ done: i + 1, total: releases.length });
-      if (i < releases.length - 1) await delay(1500);
+    if (!displayed.length) return;
+    setBulkProgress({ done: 0, total: displayed.length });
+    for (let i = 0; i < displayed.length; i++) {
+      await createAutoPlaylist(displayed[i]);
+      setBulkProgress({ done: i + 1, total: displayed.length });
+      if (i < displayed.length - 1) await delay(1500);
     }
     setBulkProgress(null);
   }
@@ -322,14 +354,14 @@ export default function RadarPage() {
             {scanning
               ? (progress?.label ?? "Scan…")
               : hasCache
-                ? `Cache ${fmtAge(cacheAge)} · ${SEED_ARTISTS.length} artistes · ${releases.length} sorties`
+                ? `Cache ${fmtAge(cacheAge)} · ${SEED_ARTISTS.length} artistes · ${displayed.length}/${releases.length} sorties`
                 : `${SEED_ARTISTS.length} artistes — aucune donnée`}
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>
-          {!scanning && releases.length > 0 && (
+          {!scanning && displayed.length > 0 && (
             <button className="btn btn-green btn-sm" onClick={createAll} disabled={isBulking || !userId} style={{ fontSize: 12 }}>
-              🚀 Tout créer ({releases.length})
+              🚀 Tout créer ({displayed.length})
             </button>
           )}
           {!scanning && hasCache && (
@@ -395,9 +427,56 @@ export default function RadarPage() {
         </div>
       )}
 
+      {/* Filter + Sort toolbar */}
+      {releases.length > 0 && !scanning && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+          {/* Date pills */}
+          {[
+            { id: "all", label: "Tout" },
+            { id: "14d", label: "< 2 semaines" },
+            { id: "30d", label: "< 1 mois" },
+          ].map(f => (
+            <button
+              key={f.id}
+              className="btn btn-sm"
+              onClick={() => setDateFilter(f.id)}
+              style={{
+                background: dateFilter === f.id ? "rgba(29,185,84,.12)" : "var(--surface2)",
+                border:     `1px solid ${dateFilter === f.id ? "rgba(29,185,84,.3)" : "var(--border2)"}`,
+                color:      dateFilter === f.id ? "var(--green)" : "var(--muted)",
+              }}
+            >
+              {f.label}
+            </button>
+          ))}
+          {/* Sort dropdown */}
+          <select
+            value={sortBy}
+            onChange={e => setSortBy(e.target.value)}
+            style={{
+              marginLeft: "auto",
+              fontFamily: "var(--sans)",
+              background: "var(--surface2)",
+              border: "1px solid var(--border2)",
+              color: "var(--text)",
+              borderRadius: 9,
+              padding: "6px 12px",
+              fontSize: 12,
+              outline: "none",
+              cursor: "pointer",
+            }}
+          >
+            <option value="popular">🔥 Plus streamés</option>
+            <option value="recent">🆕 Plus récents</option>
+            <option value="trending">📈 Tendance (14j)</option>
+            <option value="less2w">🕐 Moins de 2 semaines</option>
+          </select>
+        </div>
+      )}
+
       {/* Release list */}
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        {releases.map(r => {
+        {displayed.map(r => {
           const isCreating = creating.has(r.id);
           const isExpanded = expandedId === r.id;
           const nameUp     = r.name.toUpperCase();
@@ -405,6 +484,7 @@ export default function RadarPage() {
           const plDesc     = `${nameUp} - ${INLINE_DESC_SUFFIX}`;
           const titleKey   = `title-${r.id}`;
           const descKey    = `desc-${r.id}`;
+          const isNew      = Date.now() - new Date(r.releaseDate).getTime() <= MS14;
 
           return (
             <Fragment key={r.id}>
@@ -418,18 +498,32 @@ export default function RadarPage() {
                   : <div style={{ width: 44, height: 44, borderRadius: 8, background: "var(--surface2)", flexShrink: 0 }} />
                 }
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</div>
-                  <div style={{ fontSize: 11, color: "var(--muted)", display: "flex", gap: 8, marginTop: 2, flexWrap: "wrap" }}>
-                    <span>{r.artistName}</span>
-                    <span style={{ color: "var(--faint)" }}>·</span>
-                    <span>{r.releaseDate}</span>
-                    <span style={{ color: "var(--faint)" }}>·</span>
-                    <span style={{ textTransform: "uppercase", fontSize: 10, letterSpacing: ".05em" }}>{r.type}</span>
-                    {r.popularity > 0 && (
-                      <><span style={{ color: "var(--faint)" }}>·</span>
-                      <span style={{ color: r.popularity >= 70 ? "var(--green)" : r.popularity >= 40 ? "#f5a623" : "var(--faint)" }}>♦ {r.popularity}</span></>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</span>
+                    {isNew && (
+                      <span style={{ flexShrink: 0, fontSize: 9, fontWeight: 700, background: "rgba(29,185,84,.15)", color: "var(--green)", border: "1px solid rgba(29,185,84,.3)", borderRadius: 5, padding: "1px 5px", letterSpacing: ".06em" }}>NEW</span>
                     )}
                   </div>
+                  <div style={{ fontSize: 11, color: "var(--muted)", display: "flex", gap: 8, marginTop: 2, flexWrap: "wrap", alignItems: "center" }}>
+                    <span>{r.artistName}</span>
+                    <span style={{ color: "var(--faint)" }}>·</span>
+                    <span>{fmtRelativeDate(r.releaseDate)}</span>
+                    <span style={{ color: "var(--faint)" }}>·</span>
+                    <span style={{ textTransform: "uppercase", fontSize: 10, letterSpacing: ".05em" }}>{r.type}</span>
+                  </div>
+                  {r.popularity > 0 && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 5 }}>
+                      <div style={{ width: 100, height: 4, background: "var(--border)", borderRadius: 4, overflow: "hidden", flexShrink: 0 }}>
+                        <div style={{
+                          height: "100%",
+                          width: `${r.popularity}%`,
+                          background: r.popularity >= 70 ? "var(--green)" : r.popularity >= 40 ? "#f5a623" : "var(--faint)",
+                          borderRadius: 4,
+                        }} />
+                      </div>
+                      <span style={{ fontSize: 10, color: "var(--faint)", fontFamily: "var(--mono)" }}>{r.popularity}</span>
+                    </div>
+                  )}
                 </div>
                 <div className="track-actions" style={{ opacity: 1, display: "flex", gap: 6 }}>
                   <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); setPickerFor(pickerFor?.id === r.id ? null : r); }} disabled={isCreating || isBulking}>
