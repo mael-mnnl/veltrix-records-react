@@ -73,6 +73,14 @@ input[type="text"], input[type="search"], input[type="number"] {
 }
 input:focus { border-color: var(--green); }
 
+textarea.curator-textarea {
+  font-family: var(--mono); background: var(--surface); border: 1px solid var(--border2);
+  color: var(--text); border-radius: 9px; padding: 9px 14px; font-size: 12px;
+  outline: none; width: 100%; resize: none; line-height: 1.5;
+  transition: border-color .15s;
+}
+textarea.curator-textarea:focus { border-color: var(--green); }
+
 /* Playlist row */
 .pl-row {
   display: flex; align-items: center; gap: 12px;

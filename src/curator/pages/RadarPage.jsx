@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import {
   searchArtist, getArtistAlbums, getAlbumTracks, getTrackById,
   getAllPlaylists, addTrackToPlaylist,
@@ -7,7 +7,9 @@ import {
 } from "../utils/spotify";
 import { fmtAge, TTL } from "../utils/cache";
 import { Toast, useToast } from "../components/Toast";
-import { SEED_ARTISTS, PLAYLIST_DESC } from "../utils/constants";
+import { SEED_ARTISTS } from "../utils/constants";
+
+const INLINE_DESC_SUFFIX = "1 HOUR PLAYLIST ig: pxroducer - SEKIMANE - CONFESS YOUR LOVE - DJ SAMIR - LXNGVX - VIRAL - MXZI - JXNDRO - SAYFALSE - PREY - JMILTON - SMA$HER - CAPE - SEKIMANE - ZXKAI - DJ FKU";
 
 // ── Cache keys ────────────────────────────────────────────────────────────────
 const LS_IDS    = "radar_ids_v1";          // name → id  (30 days, never refetch)
@@ -79,6 +81,8 @@ export default function RadarPage() {
   const [userId,       setUserId]       = useState(null);
   const [creating,     setCreating]     = useState(new Set());
   const [bulkProgress, setBulkProgress] = useState(null);
+  const [expandedId,   setExpandedId]   = useState(null);
+  const [copiedField,  setCopiedField]  = useState(null);
   const { toast, show } = useToast();
 
   // ── Mount: load from cache only, zero API calls ──────────────────────────
@@ -277,6 +281,30 @@ export default function RadarPage() {
     finally { setAddingTo(null); }
   }
 
+  // ── Cover download ────────────────────────────────────────────────────────
+  async function downloadCover(url, name) {
+    try {
+      const res    = await fetch(url);
+      const blob   = await res.blob();
+      const objUrl = URL.createObjectURL(blob);
+      const a      = document.createElement("a");
+      a.href       = objUrl;
+      a.download   = name.toUpperCase().replace(/\s+/g, "-") + "-cover.jpg";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(objUrl);
+    } catch {}
+  }
+
+  // ── Copy to clipboard ─────────────────────────────────────────────────────
+  function handleCopy(text, fieldKey) {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedField(fieldKey);
+      setTimeout(() => setCopiedField(f => f === fieldKey ? null : f), 2000);
+    }).catch(() => {});
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────
   const pct      = progress     ? Math.round((progress.done / progress.total) * 100) : 0;
   const bulkPct  = bulkProgress ? Math.round((bulkProgress.done / bulkProgress.total) * 100) : 0;
@@ -371,40 +399,137 @@ export default function RadarPage() {
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         {releases.map(r => {
           const isCreating = creating.has(r.id);
+          const isExpanded = expandedId === r.id;
+          const nameUp     = r.name.toUpperCase();
+          const plTitle    = `${nameUp} - 1 HOUR`;
+          const plDesc     = `${nameUp} - ${INLINE_DESC_SUFFIX}`;
+          const titleKey   = `title-${r.id}`;
+          const descKey    = `desc-${r.id}`;
+
           return (
-            <div key={r.id} className="track-row" style={{ alignItems: "center" }}>
-              {r.cover
-                ? <img src={r.cover} style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
-                : <div style={{ width: 44, height: 44, borderRadius: 8, background: "var(--surface2)", flexShrink: 0 }} />
-              }
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</div>
-                <div style={{ fontSize: 11, color: "var(--muted)", display: "flex", gap: 8, marginTop: 2, flexWrap: "wrap" }}>
-                  <span>{r.artistName}</span>
-                  <span style={{ color: "var(--faint)" }}>·</span>
-                  <span>{r.releaseDate}</span>
-                  <span style={{ color: "var(--faint)" }}>·</span>
-                  <span style={{ textTransform: "uppercase", fontSize: 10, letterSpacing: ".05em" }}>{r.type}</span>
-                  {r.popularity > 0 && (
-                    <><span style={{ color: "var(--faint)" }}>·</span>
-                    <span style={{ color: r.popularity >= 70 ? "var(--green)" : r.popularity >= 40 ? "#f5a623" : "var(--faint)" }}>♦ {r.popularity}</span></>
-                  )}
+            <Fragment key={r.id}>
+              <div
+                className="track-row"
+                style={{ alignItems: "center", cursor: "pointer" }}
+                onClick={() => setExpandedId(isExpanded ? null : r.id)}
+              >
+                {r.cover
+                  ? <img src={r.cover} style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
+                  : <div style={{ width: 44, height: 44, borderRadius: 8, background: "var(--surface2)", flexShrink: 0 }} />
+                }
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</div>
+                  <div style={{ fontSize: 11, color: "var(--muted)", display: "flex", gap: 8, marginTop: 2, flexWrap: "wrap" }}>
+                    <span>{r.artistName}</span>
+                    <span style={{ color: "var(--faint)" }}>·</span>
+                    <span>{r.releaseDate}</span>
+                    <span style={{ color: "var(--faint)" }}>·</span>
+                    <span style={{ textTransform: "uppercase", fontSize: 10, letterSpacing: ".05em" }}>{r.type}</span>
+                    {r.popularity > 0 && (
+                      <><span style={{ color: "var(--faint)" }}>·</span>
+                      <span style={{ color: r.popularity >= 70 ? "var(--green)" : r.popularity >= 40 ? "#f5a623" : "var(--faint)" }}>♦ {r.popularity}</span></>
+                    )}
+                  </div>
+                </div>
+                <div className="track-actions" style={{ opacity: 1, display: "flex", gap: 6 }}>
+                  <button className="btn btn-ghost btn-sm" onClick={e => { e.stopPropagation(); setPickerFor(pickerFor?.id === r.id ? null : r); }} disabled={isCreating || isBulking}>
+                    + Playlist
+                  </button>
+                  <button
+                    className="btn btn-sm"
+                    onClick={e => { e.stopPropagation(); createAutoPlaylist(r); }}
+                    disabled={isCreating || isBulking || !userId}
+                    style={{ background: isCreating ? "var(--surface2)" : "rgba(29,185,84,.15)", color: isCreating ? "var(--faint)" : "var(--green)", border: "1px solid rgba(29,185,84,.25)", minWidth: 118 }}
+                  >
+                    {isCreating ? "Création…" : "🎵 Créer playlist"}
+                  </button>
                 </div>
               </div>
-              <div className="track-actions" style={{ opacity: 1, display: "flex", gap: 6 }}>
-                <button className="btn btn-ghost btn-sm" onClick={() => setPickerFor(pickerFor?.id === r.id ? null : r)} disabled={isCreating || isBulking}>
-                  + Playlist
-                </button>
-                <button
-                  className="btn btn-sm"
-                  onClick={() => createAutoPlaylist(r)}
-                  disabled={isCreating || isBulking || !userId}
-                  style={{ background: isCreating ? "var(--surface2)" : "rgba(29,185,84,.15)", color: isCreating ? "var(--faint)" : "var(--green)", border: "1px solid rgba(29,185,84,.25)", minWidth: 118 }}
-                >
-                  {isCreating ? "Création…" : "🎵 Créer playlist"}
-                </button>
-              </div>
-            </div>
+
+              {isExpanded && (
+                <div style={{
+                  margin: "0 0 6px 56px",
+                  background: "var(--surface2)",
+                  border: "1px solid var(--border)",
+                  borderRadius: 12,
+                  padding: 16,
+                  display: "flex",
+                  gap: 20,
+                  alignItems: "flex-start",
+                  animation: "fadeIn .2s ease",
+                }}>
+                  {/* Cover */}
+                  {r.cover && (
+                    <div style={{ flexShrink: 0 }}>
+                      <img
+                        src={r.cover}
+                        style={{ width: 200, height: 200, borderRadius: 10, objectFit: "cover", boxShadow: "0 4px 24px rgba(0,0,0,.5)", display: "block" }}
+                      />
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ marginTop: 8, width: "100%", fontSize: 11 }}
+                        onClick={() => downloadCover(r.cover, r.name)}
+                      >
+                        ⬇ Télécharger la cover
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Fields */}
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 14, minWidth: 0 }}>
+                    <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ fontSize: 13, padding: "2px 8px" }}
+                        onClick={() => setExpandedId(null)}
+                      >
+                        ✕
+                      </button>
+                    </div>
+
+                    {/* Titre */}
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: ".06em", marginBottom: 6 }}>TITRE DE PLAYLIST</div>
+                      <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                        <textarea
+                          readOnly
+                          value={plTitle}
+                          rows={1}
+                          className="curator-textarea"
+                        />
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          style={{ flexShrink: 0, color: copiedField === titleKey ? "var(--green)" : undefined }}
+                          onClick={() => handleCopy(plTitle, titleKey)}
+                        >
+                          {copiedField === titleKey ? "✓ Copié !" : "Copier"}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Description */}
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: ".06em", marginBottom: 6 }}>DESCRIPTION</div>
+                      <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                        <textarea
+                          readOnly
+                          value={plDesc}
+                          rows={3}
+                          className="curator-textarea"
+                        />
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          style={{ flexShrink: 0, color: copiedField === descKey ? "var(--green)" : undefined }}
+                          onClick={() => handleCopy(plDesc, descKey)}
+                        >
+                          {copiedField === descKey ? "✓ Copié !" : "Copier"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </Fragment>
           );
         })}
       </div>
