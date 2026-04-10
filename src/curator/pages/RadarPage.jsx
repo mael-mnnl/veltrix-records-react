@@ -96,24 +96,51 @@ export default function RadarPage() {
   const [dateFilter,   setDateFilter]   = useState("all");     // all | 14d | 30d
   const { toast, show } = useToast();
 
-  const MS14 = 14 * 86_400_000;
-  const MS30 = 30 * 86_400_000;
-
-  const displayed = useMemo(() => {
+  // ── Potential scores (calculated on ALL releases, never filtered) ────────────
+  const scoreMap = useMemo(() => {
+    if (!releases.length) return {};
     const now = Date.now();
-    let list = [...releases];
-    // Date pill filter
-    if      (dateFilter === "14d") list = list.filter(r => now - new Date(r.releaseDate).getTime() <= MS14);
-    else if (dateFilter === "30d") list = list.filter(r => now - new Date(r.releaseDate).getTime() <= MS30);
-    // Sort (trending / less2w also add their own 14d filter)
-    switch (sortBy) {
-      case "popular":   list.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0)); break;
-      case "recent":    list.sort((a, b) => new Date(b.releaseDate) - new Date(a.releaseDate)); break;
-      case "trending":  list = list.filter(r => now - new Date(r.releaseDate).getTime() <= MS14);
-                        list.sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0)); break;
-      case "less2w":    list = list.filter(r => now - new Date(r.releaseDate).getTime() <= MS14);
-                        list.sort((a, b) => new Date(b.releaseDate) - new Date(a.releaseDate)); break;
+    const velocities = releases.map(r => {
+      const age = Math.max(1, (now - new Date(r.releaseDate).getTime()) / 86_400_000);
+      return { id: r.id, vel: (r.popularity ?? 0) / age };
+    });
+    const maxVel = Math.max(...velocities.map(v => v.vel), 0.001);
+    return Object.fromEntries(
+      velocities.map(({ id, vel }) => [id, Math.round((vel / maxVel) * 100)])
+    );
+  }, [releases]);
+
+  // ── Sorted + filtered view ────────────────────────────────────────────────────
+  const displayed = useMemo(() => {
+    const MS14 = 14 * 86_400_000;
+    const MS30 = 30 * 86_400_000;
+    const now  = Date.now();
+    const age  = r => now - new Date(r.releaseDate).getTime();
+
+    // 1. Apply date pill filter
+    let list = releases.filter(r => {
+      if (dateFilter === "14d") return age(r) <= MS14;
+      if (dateFilter === "30d") return age(r) <= MS30;
+      return true;
+    });
+
+    // 2. Sort mode (trending / less2w also add a 14d gate on top)
+    if (sortBy === "popular") {
+      list = list.slice().sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
+    } else if (sortBy === "recent") {
+      list = list.slice().sort((a, b) => new Date(b.releaseDate) - new Date(a.releaseDate));
+    } else if (sortBy === "trending") {
+      list = list
+        .filter(r => age(r) <= MS14)
+        .slice()
+        .sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
+    } else if (sortBy === "less2w") {
+      list = list
+        .filter(r => age(r) <= MS14)
+        .slice()
+        .sort((a, b) => new Date(b.releaseDate) - new Date(a.releaseDate));
     }
+
     return list;
   }, [releases, sortBy, dateFilter]);
 
@@ -484,7 +511,11 @@ export default function RadarPage() {
           const plDesc     = `${nameUp} - ${INLINE_DESC_SUFFIX}`;
           const titleKey   = `title-${r.id}`;
           const descKey    = `desc-${r.id}`;
-          const isNew      = Date.now() - new Date(r.releaseDate).getTime() <= MS14;
+          const isNew      = Date.now() - new Date(r.releaseDate).getTime() <= 14 * 86_400_000;
+          const score      = scoreMap[r.id] ?? 0;
+          const scoreBg    = score >= 70 ? "rgba(29,185,84,0.15)"  : score >= 40 ? "rgba(255,200,0,0.12)"  : "rgba(255,85,85,0.12)";
+          const scoreBd    = score >= 70 ? "var(--green)"           : score >= 40 ? "#c9a94e"               : "var(--red)";
+          const scoreClr   = score >= 70 ? "var(--green)"           : score >= 40 ? "#c9a94e"               : "var(--red)";
 
           return (
             <Fragment key={r.id}>
@@ -497,6 +528,23 @@ export default function RadarPage() {
                   ? <img src={r.cover} style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
                   : <div style={{ width: 44, height: 44, borderRadius: 8, background: "var(--surface2)", flexShrink: 0 }} />
                 }
+
+                {/* Score badge */}
+                <div style={{
+                  flexShrink: 0,
+                  width: 40, height: 40,
+                  borderRadius: 8,
+                  background: scoreBg,
+                  border: `1px solid ${scoreBd}`,
+                  color: scoreClr,
+                  display: "flex", flexDirection: "column",
+                  alignItems: "center", justifyContent: "center",
+                  lineHeight: 1,
+                }}>
+                  <span style={{ fontWeight: 800, fontSize: 15 }}>{score}</span>
+                  <span style={{ fontSize: 9, opacity: 0.6, marginTop: 1 }}>/100</span>
+                </div>
+
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
                     <span style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.name}</span>
