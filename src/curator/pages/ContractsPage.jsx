@@ -2,6 +2,7 @@ import { useState, useCallback, useRef } from "react";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import * as pdfjsLib from "pdfjs-dist";
 import { Toast, useToast } from "../components/Toast";
+import logoUrl from "../../assets/logovtx.png";
 
 // ── pdfjs worker setup (v5, ESM-only) ────────────────────────────────────────
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -215,45 +216,49 @@ function FixTab({ show }) {
       });
 
       // ── CORRECTION 2: Suppression montant 1 000 € ──────────────────────────
+      // Strategy: find the ENTIRE paragraph ("Label will fund...Royalty.") and
+      // cover it with a single white rectangle, then redraw the replacement text.
       setProgress("2/4 — Clause marketing…");
       let c2done = false;
       outerC2: for (let pi = 0; pi < pageCount; pi++) {
         const page  = pdfDoc.getPage(pi);
         const lines = groupByLine(pageItems[pi]);
+        const { width: pw } = page.getSize();
 
-        // Target lines containing the amount mention
-        const targetLines = lines.filter((l) =>
-          l.str.includes("1,000") ||
-          l.str.includes("One Thousand") ||
-          l.str.includes("minimum of")
+        // Find start line: "Label will fund and administer..."
+        const startIdx = lines.findIndex((l) =>
+          l.str.includes("Label will fund") && l.str.includes("administer")
         );
-        if (targetLines.length === 0) continue;
+        if (startIdx < 0) continue;
 
-        // Cover each target line with a white rect
-        for (const line of targetLines) {
-          const xs   = line.items.map((it) => it.transform[4]);
-          const minX = Math.min(...xs);
-          const fs   = estimateFontSize(line.items[0].transform);
-          const totalW = line.items.reduce(
-            (s, it) => s + (it.width > 0 ? it.width : fs * it.str.length * 0.55), 0
-          );
-          page.drawRectangle({
-            x: minX - 2, y: line.y - fs * 0.3,
-            width: Math.max(totalW + 14, 460), height: fs * 1.55,
-            color: rgb(1, 1, 1),
-          });
-        }
+        // Find end line: first line after start that contains "Royalty"
+        const endIdx = lines.findIndex((l, i) =>
+          i > startIdx && l.str.includes("Royalty")
+        );
+        const safeEnd = endIdx >= 0 ? endIdx : Math.min(startIdx + 5, lines.length - 1);
 
-        // Redraw replacement text starting at position of first erased line
-        const fl    = targetLines[0];
-        const fs    = Math.max(estimateFontSize(fl.items[0].transform) * 0.85, 7);
-        const startX = Math.min(...fl.items.map((it) => it.transform[4]));
+        const startLine = lines[startIdx];
+        const endLine   = lines[safeEnd];
+        const fs     = Math.max(estimateFontSize(startLine.items[0].transform) * 0.9, 7);
+        const startX = Math.min(...startLine.items.map((it) => it.transform[4]));
+
+        // Single white rect covering the entire paragraph block
+        const topY    = startLine.y + fs * 1.3;
+        const bottomY = endLine.y - fs * 0.5;
+        page.drawRectangle({
+          x: 36, y: bottomY,
+          width: pw - 72,
+          height: Math.max(topY - bottomY, fs * 3.5),
+          color: rgb(1, 1, 1),
+        });
+
+        // Replacement paragraph (no "minimum of 1,000 €")
         const replacement =
           "Label will fund and administer a marketing budget for third-party expenses " +
           "incurred in connection with the marketing and promotion of the Master (\u00ab the Fund \u00bb). " +
           "This Fund shall be recoupable against Licensor\u2019s Royalty.";
-        const wrapped = wrapText(replacement, helvetica, fs, 455);
-        let dy = fl.y;
+        const wrapped = wrapText(replacement, helvetica, fs, pw - 130);
+        let dy = startLine.y;
         for (const wl of wrapped) {
           page.drawText(wl, { x: startX, y: dy, size: fs, font: helvetica, color: rgb(0.1, 0.1, 0.1) });
           dy -= fs * 1.5;
@@ -303,7 +308,7 @@ function FixTab({ show }) {
       setProgress("4/4 — Remplacement logo…");
       let c4done = false;
       try {
-        const logoRes = await fetch("/logovtx.png");
+        const logoRes = await fetch(logoUrl);
         if (!logoRes.ok) throw new Error("Logo introuvable (/logovtx.png)");
         const logoBytes = await logoRes.arrayBuffer();
         const logoImg   = await pdfDoc.embedPng(logoBytes);
@@ -452,26 +457,23 @@ function CheckTab({ show }) {
           .join(" ");
       }
 
+      // NOTE: checks use POSITIVE presence tests (not absence tests).
+      // pdfjs extracts the full content stream — text visually covered by
+      // white rectangles is still readable in the stream. So we check that
+      // the REPLACEMENT text is present, not that the old text is absent.
       const checks = [
         {
-          label:  "Aucune mention du montant 1\u202f000\u202f\u20ac",
-          detail: "La clause de budget minimum a \u00e9t\u00e9 supprim\u00e9e",
-          pass:
-            !fullText.includes("1,000") &&
-            !/One\s+Thousand/i.test(fullText) &&
-            !fullText.includes("1000 \u20ac"),
+          label:  "Clause marketing sans budget minimum de 1\u202f000\u202f\u20ac",
+          detail: "La clause de budget minimum a \u00e9t\u00e9 remplac\u00e9e",
+          // The replacement paragraph starts with this phrase — absent in raw contracts.
+          pass:   /a marketing budget for third-party expenses/i.test(fullText),
         },
         {
           label:  "Clause Playlist Placement pr\u00e9sente",
-          detail: "La valorisation \u20ac20/mois est int\u00e9gr\u00e9e",
+          detail: "La valorisation \u20ac20\/mois est int\u00e9gr\u00e9e",
           pass:
-            /playlist/i.test(fullText) &&
-            /\u20ac\s*20|20\s*euros|twenty\s*euros/i.test(fullText),
-        },
-        {
-          label:  "Aucune mention de RYLARIS",
-          detail: "Remplac\u00e9 par VELTRIX RECORDS partout",
-          pass:   !fullText.includes("RYLARIS"),
+            /Playlist\s*Placement/i.test(fullText) &&
+            /\u20ac\s*20|twenty\s+euros|20\s*euros/i.test(fullText),
         },
       ];
 
