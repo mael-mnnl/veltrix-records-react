@@ -1,86 +1,245 @@
 import { useState, useCallback, useRef } from "react";
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { PDFDocument } from "pdf-lib";
 import * as pdfjsLib from "pdfjs-dist";
 import { Toast, useToast } from "../components/Toast";
 import logoUrl from "../../assets/logovtx.png";
 
-// ── pdfjs worker setup (v5, ESM-only) ────────────────────────────────────────
+// ── pdfjs worker (v5, ESM) ────────────────────────────────────────────────────
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   "pdfjs-dist/build/pdf.worker.min.mjs",
   import.meta.url
 ).toString();
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
 const fmtSize = (n) =>
   n < 1_048_576 ? `${(n / 1024).toFixed(1)} Ko` : `${(n / 1_048_576).toFixed(1)} Mo`;
 
-/** Wrap text to fit maxWidth using pdf-lib font metrics */
-function wrapText(text, font, size, maxWidth) {
+// ── Canvas text wrapper ───────────────────────────────────────────────────────
+function wrapCanvasText(ctx, text, x, startY, maxWidth, lineHeight) {
   const words = text.split(" ");
-  const lines = [];
-  let cur = "";
-  for (const w of words) {
-    const test = cur ? `${cur} ${w}` : w;
-    try {
-      if (font.widthOfTextAtSize(test, size) <= maxWidth) {
-        cur = test;
-      } else {
-        if (cur) lines.push(cur);
-        cur = w;
-      }
-    } catch {
-      cur = test; // fallback: don't break
-    }
-  }
-  if (cur) lines.push(cur);
-  return lines;
-}
-
-/**
- * Group pdfjs text items by approximate Y (same line = within 3pt).
- * Returns lines sorted top-to-bottom (descending y).
- * NOTE: pdf-lib and pdfjs both use PDF user space (origin bottom-left, y up).
- * Text item coordinates from pdfjs.getTextContent() are directly compatible
- * with pdf-lib drawing coordinates.
- */
-function groupByLine(items) {
-  const lines = [];
-  for (const item of items) {
-    if (typeof item.str !== "string") continue;
-    const y = item.transform[5];
-    const existing = lines.find((l) => Math.abs(l.y - y) < 3);
-    if (existing) {
-      existing.items.push(item);
-      existing.str += item.str;
+  let line = "";
+  let y = startY;
+  for (const word of words) {
+    const test = line ? `${line} ${word}` : word;
+    if (ctx.measureText(test).width > maxWidth && line !== "") {
+      ctx.fillText(line, x, y);
+      line = word;
+      y += lineHeight;
     } else {
-      lines.push({ y, items: [item], str: item.str });
+      line = test;
     }
   }
-  return lines.sort((a, b) => b.y - a.y);
+  if (line) ctx.fillText(line, x, y);
+  return y; // last baseline y
 }
 
-/** Estimate rendered font size from pdfjs transform matrix */
-function estimateFontSize(transform) {
-  const [a, b] = transform;
-  return Math.max(Math.sqrt(a * a + b * b), 6);
+// ── Core: render each page to canvas, apply corrections, embed in new PDF ────
+async function processContract(pdfBytes, onProgress) {
+  const SCALE = 2.0;
+
+  onProgress("Chargement…");
+  const pdfJsDoc = await pdfjsLib.getDocument({ data: pdfBytes }).promise;
+  const numPages = pdfJsDoc.numPages;
+  const newPdfDoc = await PDFDocument.create();
+
+  // Pre-load logo bitmap
+  let logoBitmap = null;
+  try {
+    const res = await fetch(logoUrl);
+    if (res.ok) logoBitmap = await createImageBitmap(await res.blob());
+  } catch (e) {
+    console.warn("[contracts] Logo:", e.message);
+  }
+
+  const corrLog = { c1: 0, c2: false, c3: false, c4: false };
+
+  for (let pn = 1; pn <= numPages; pn++) {
+    onProgress(`Page ${pn}/${numPages}…`);
+
+    const page     = await pdfJsDoc.getPage(pn);
+    const viewport = page.getViewport({ scale: SCALE });
+    const canvas   = document.createElement("canvas");
+    canvas.width   = viewport.width;
+    canvas.height  = viewport.height;
+    const ctx      = canvas.getContext("2d");
+
+    // Render page to canvas
+    await page.render({ canvasContext: ctx, viewport }).promise;
+
+    const tc    = await page.getTextContent();
+    const items = tc.items.filter((it) => typeof it.str === "string" && it.str.trim());
+
+    // ── PDF → canvas coordinate helpers ──────────────────────────────────
+    // PDF: origin bottom-left, y↑.  Canvas: origin top-left, y↓.
+    const cxP  = (px)    => px * SCALE;
+    const cyBL = (py)    => viewport.height - py * SCALE;        // canvas baseline
+    const cyT  = (py, h) => viewport.height - (py + h) * SCALE; // canvas top of box
+
+    // Sample background color at a canvas pixel
+    const sampleBg = (px, py) => {
+      const d = ctx.getImageData(
+        Math.max(0, Math.floor(px)),
+        Math.max(0, Math.floor(py)),
+        1, 1
+      ).data;
+      return `rgb(${d[0]},${d[1]},${d[2]})`;
+    };
+
+    // ── C1: RYLARIS → VELTRIX RECORDS ────────────────────────────────────
+    for (const item of items) {
+      if (!item.str.includes("RYLARIS")) continue;
+      const px = item.transform[4], py = item.transform[5];
+      const ph = item.height || 10, pw = item.width || item.str.length * 6.5;
+      const bx = cxP(px) - 4, by = cyT(py, ph) - 4;
+      const bw = pw * SCALE + 22, bh = ph * SCALE + 8;
+      // Cover with background color
+      ctx.fillStyle = sampleBg(bx + 2, by + 2);
+      ctx.fillRect(bx, by, bw, bh);
+      // Write replacement
+      const fs = Math.max(Math.round(ph * SCALE * 0.72), 7);
+      ctx.font = `${fs}px Arial`;
+      ctx.fillStyle = "#9a9a9a";
+      ctx.fillText("VELTRIX RECORDS", cxP(px), cyBL(py) - 1);
+      corrLog.c1++;
+    }
+
+    // ── C2: Remove "minimum of 1,000 €" — replace entire fund paragraph ──
+    if (!corrLog.c2) {
+      const fundStart = items.find(
+        (it) => it.str.includes("Label will fund") && it.str.includes("administer")
+      );
+      if (fundStart) {
+        const startPY = fundStart.transform[5];
+        const startH  = fundStart.height || 10;
+
+        // All items within 90pt below the start line (the full paragraph)
+        const paraItems = items.filter(
+          (it) => it.transform[5] < startPY && it.transform[5] >= startPY - 90
+        );
+        // Last item in the paragraph that contains "Royalty"
+        const royaltyItem = [...paraItems].reverse().find((it) => it.str.includes("Royalty"));
+        const endPY = royaltyItem ? royaltyItem.transform[5] : startPY - 52;
+
+        // Single white rect covering the whole paragraph
+        const rectTop = cyT(startPY, startH * 1.3);
+        const rectBot = cyBL(endPY) + startH * SCALE * 0.7;
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(
+          36, rectTop,
+          viewport.width - 72,
+          Math.max(rectBot - rectTop, startH * SCALE * 4)
+        );
+
+        // Replacement text (no "minimum of 1,000 €")
+        const fs = Math.max(Math.round(startH * SCALE * 0.80), 8);
+        ctx.font = `${fs}px Arial`;
+        ctx.fillStyle = "#1a1a1a";
+        wrapCanvasText(
+          ctx,
+          "Label will fund and administer a marketing budget for third-party expenses " +
+          "incurred in connection with the marketing and promotion of the Master " +
+          "\u00ab the Fund \u00bb). This Fund shall be recoupable against Licensor\u2019s Royalty.",
+          cxP(fundStart.transform[4]),
+          cyBL(startPY) - 1,
+          viewport.width - 120,
+          fs * 1.5
+        );
+        corrLog.c2 = true;
+      }
+    }
+
+    // ── C3: Playlist Placement clause ─────────────────────────────────────
+    if (!corrLog.c3) {
+      // Anchor = end of "The Fund will be administered…relevant third / parties." paragraph
+      const anchor =
+        items.find((it) => it.str.trim() === "parties.") ||
+        items.find((it) => it.str.includes("relevant third"));
+      if (anchor) {
+        const ph  = anchor.height || 9;
+        const fs  = Math.max(Math.round(ph * SCALE * 0.80), 7);
+        // Insert below anchor (higher canvas y = lower on page)
+        const insertX = cxP(anchor.transform[4]);
+        const insertY = cyBL(anchor.transform[5]) + fs * 3.5;
+        ctx.font = `${fs}px Arial`;
+        ctx.fillStyle = "#1a1a1a";
+        // TODO: scroll down fix — may overlap next paragraph if insufficient vertical space
+        wrapCanvasText(
+          ctx,
+          "Playlist Placement. The Label shall place the Master in its promotional playlist " +
+          "network as part of its marketing efforts. Such playlist placement shall be valued " +
+          "at \u20ac20 (twenty euros) per month and shall be considered a marketing expense " +
+          "recoupable against Licensor\u2019s Royalty pursuant to this Section 3, for as long " +
+          "as the Master remains active in the Label\u2019s playlist network. The Label does " +
+          "not guarantee any specific streaming results or audience numbers from such placements.",
+          insertX, insertY,
+          viewport.width - insertX - 42,
+          fs * 1.5
+        );
+        corrLog.c3 = true;
+      }
+    }
+
+    // ── C4: Replace logo on page 1 ────────────────────────────────────────
+    if (pn === 1 && logoBitmap) {
+      try {
+        const opList = await page.getOperatorList();
+        let placed = false;
+
+        for (let i = 0; i < opList.fnArray.length && !placed; i++) {
+          if (opList.fnArray[i] !== pdfjsLib.OPS.paintImageXObject) continue;
+          // Look backwards for the preceding transform (cm operator)
+          for (let j = i - 1; j >= Math.max(0, i - 6); j--) {
+            if (opList.fnArray[j] !== pdfjsLib.OPS.transform) continue;
+            const m   = opList.argsArray[j]; // [a,b,c,d,e,f]
+            const iw  = Math.abs(m[0]), ih = Math.abs(m[3]);
+            const ix  = m[4],  iy = m[5];
+            const ccx = cxP(ix), ccy = cyT(iy, ih);
+            const ccw = iw * SCALE, cch = ih * SCALE;
+            // Cover old logo
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(ccx - 12, ccy - 12, ccw + 24, cch + 24);
+            // Draw new logo
+            ctx.drawImage(logoBitmap, ccx, ccy, ccw, cch);
+            placed = corrLog.c4 = true;
+            break;
+          }
+        }
+
+        if (!placed) {
+          // Fallback: upper-center of page (approx. where cover logo sits)
+          const lw = 110 * SCALE;
+          const lh = (logoBitmap.height / logoBitmap.width) * lw;
+          const lx = (viewport.width - lw) / 2;
+          const ly = 80;
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(lx - 20, ly - 10, lw + 40, lh + 30);
+          ctx.drawImage(logoBitmap, lx, ly, lw, lh);
+          corrLog.c4 = true;
+        }
+      } catch (e) {
+        console.warn("[contracts] Logo error:", e.message);
+      }
+    }
+
+    // ── Embed canvas as PNG → new PDF page (original point dimensions) ────
+    onProgress(`Encodage ${pn}/${numPages}…`);
+    const dataUrl  = canvas.toDataURL("image/png", 0.92);
+    const pngBytes = Uint8Array.from(atob(dataUrl.split(",")[1]), (c) => c.charCodeAt(0));
+    const embedded = await newPdfDoc.embedPng(pngBytes);
+    const origVP   = page.getViewport({ scale: 1.0 });
+    const newPage  = newPdfDoc.addPage([origVP.width, origVP.height]);
+    newPage.drawImage(embedded, { x: 0, y: 0, width: origVP.width, height: origVP.height });
+  }
+
+  onProgress("Finalisation…");
+  return { pdfBytes: await newPdfDoc.save(), corrLog };
 }
 
 // ── Drag & Drop zone ──────────────────────────────────────────────────────────
-
 function DragZone({ onFile, dragging, setDragging }) {
   const inputRef = useRef(null);
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setDragging(false);
-    const f = e.dataTransfer.files[0];
-    if (f) onFile(f);
-  };
-
   return (
     <div
-      onDrop={handleDrop}
+      onDrop={(e) => { e.preventDefault(); setDragging(false); if (e.dataTransfer.files[0]) onFile(e.dataTransfer.files[0]); }}
       onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
       onDragLeave={() => setDragging(false)}
       onClick={() => inputRef.current?.click()}
@@ -88,32 +247,23 @@ function DragZone({ onFile, dragging, setDragging }) {
         border: `2px dashed ${dragging ? "var(--green)" : "var(--border2)"}`,
         borderRadius: "var(--radius)",
         background: dragging ? "rgba(29,185,84,.06)" : "var(--surface2)",
-        padding: "48px 24px",
-        textAlign: "center",
-        cursor: "pointer",
-        transition: "all .2s",
-        userSelect: "none",
+        padding: "48px 24px", textAlign: "center", cursor: "pointer",
+        transition: "all .2s", userSelect: "none",
       }}
     >
       <div style={{ fontSize: 36, marginBottom: 12 }}>📄</div>
       <div style={{ fontSize: 13, color: "var(--muted)", fontWeight: 500 }}>
         Glisse un PDF ici ou clique pour choisir
       </div>
-      <div style={{ fontSize: 11, color: "var(--faint)", marginTop: 6 }}>
-        Fichiers .pdf uniquement
-      </div>
+      <div style={{ fontSize: 11, color: "var(--faint)", marginTop: 6 }}>Fichiers .pdf uniquement</div>
       <input
-        ref={inputRef}
-        type="file"
-        accept=".pdf"
-        style={{ display: "none" }}
+        ref={inputRef} type="file" accept=".pdf" style={{ display: "none" }}
         onChange={(e) => { if (e.target.files[0]) onFile(e.target.files[0]); }}
       />
     </div>
   );
 }
 
-/** File info card shown after upload */
 function FileCard({ file, onReset }) {
   return (
     <div className="card" style={{ padding: 16, display: "flex", alignItems: "center", gap: 14 }}>
@@ -130,25 +280,18 @@ function FileCard({ file, onReset }) {
 }
 
 // ── TAB 1 — Corriger le contrat ───────────────────────────────────────────────
-
 function FixTab({ show }) {
   const [file,     setFile]     = useState(null);
   const [bytes,    setBytes]    = useState(null);
-  const [step,     setStep]     = useState("idle"); // idle | processing | done
+  const [step,     setStep]     = useState("idle");
   const [progress, setProgress] = useState("");
   const [log,      setLog]      = useState([]);
   const [result,   setResult]   = useState(null);
   const [dragging, setDragging] = useState(false);
 
   const handleFile = useCallback((f) => {
-    if (!f.name.toLowerCase().endsWith(".pdf")) {
-      show("Fichier PDF requis", "error");
-      return;
-    }
-    setFile(f);
-    setStep("idle");
-    setLog([]);
-    setResult(null);
+    if (!f.name.toLowerCase().endsWith(".pdf")) { show("Fichier PDF requis", "error"); return; }
+    setFile(f); setStep("idle"); setLog([]); setResult(null);
     const reader = new FileReader();
     reader.onload = (e) => setBytes(new Uint8Array(e.target.result));
     reader.readAsArrayBuffer(f);
@@ -158,204 +301,31 @@ function FixTab({ show }) {
 
   const apply = async () => {
     if (!bytes) return;
-    setStep("processing");
-    setLog([]);
-    const corrections = [];
-
+    setStep("processing"); setLog([]);
     try {
-      // ── Load PDF with both libraries ────────────────────────────────────────
-      const pdfDoc   = await PDFDocument.load(bytes, { ignoreEncryption: true });
-      const pdfJsDoc = await pdfjsLib.getDocument({ data: bytes }).promise;
-      const pageCount = pdfDoc.getPageCount();
-
-      const helvetica     = await pdfDoc.embedFont(StandardFonts.Helvetica);
-      const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-
-      // ── Extract text items per page ─────────────────────────────────────────
-      setProgress("Analyse du document…");
-      const pageItems = [];
-      for (let i = 0; i < pageCount; i++) {
-        const pjsPage = await pdfJsDoc.getPage(i + 1);
-        const content  = await pjsPage.getTextContent();
-        pageItems.push(content.items.filter((it) => typeof it.str === "string"));
-      }
-
-      // ── CORRECTION 1: RYLARIS → VELTRIX RECORDS ────────────────────────────
-      // pdf-lib cannot modify existing content streams (FlateDecode / binary).
-      // Instead we draw white rectangles over old text and render new text on top.
-      setProgress("1/4 — Remplacement RYLARIS…");
-      let c1count = 0;
-      for (let pi = 0; pi < pageCount; pi++) {
-        const page = pdfDoc.getPage(pi);
-        for (const item of pageItems[pi]) {
-          if (!item.str.includes("RYLARIS")) continue;
-          const [, , , , x, y] = item.transform;
-          const fs = estimateFontSize(item.transform);
-          const w  = item.width > 0 ? item.width : fs * item.str.length * 0.55;
-          // White cover
-          page.drawRectangle({
-            x: x - 2, y: y - fs * 0.3,
-            width: w + 12, height: fs * 1.5,
-            color: rgb(1, 1, 1),
-          });
-          const newStr = item.str
-            .replace(/RYLARIS MUSIC/g, "VELTRIX RECORDS")
-            .replace(/RYLARIS/g,       "VELTRIX RECORDS");
-          page.drawText(newStr, {
-            x, y,
-            size: Math.max(fs * 0.85, 6),
-            font: helvetica,
-            color: rgb(0.68, 0.68, 0.68),
-          });
-          c1count++;
-        }
-      }
-      corrections.push({
-        ok:    c1count > 0,
-        label: `RYLARIS → VELTRIX RECORDS (${c1count} occurrence${c1count > 1 ? "s" : ""})`,
-      });
-
-      // ── CORRECTION 2: Suppression montant 1 000 € ──────────────────────────
-      // Strategy: find the ENTIRE paragraph ("Label will fund...Royalty.") and
-      // cover it with a single white rectangle, then redraw the replacement text.
-      setProgress("2/4 — Clause marketing…");
-      let c2done = false;
-      outerC2: for (let pi = 0; pi < pageCount; pi++) {
-        const page  = pdfDoc.getPage(pi);
-        const lines = groupByLine(pageItems[pi]);
-        const { width: pw } = page.getSize();
-
-        // Find start line: "Label will fund and administer..."
-        const startIdx = lines.findIndex((l) =>
-          l.str.includes("Label will fund") && l.str.includes("administer")
-        );
-        if (startIdx < 0) continue;
-
-        // Find end line: first line after start that contains "Royalty"
-        const endIdx = lines.findIndex((l, i) =>
-          i > startIdx && l.str.includes("Royalty")
-        );
-        const safeEnd = endIdx >= 0 ? endIdx : Math.min(startIdx + 5, lines.length - 1);
-
-        const startLine = lines[startIdx];
-        const endLine   = lines[safeEnd];
-        const fs     = Math.max(estimateFontSize(startLine.items[0].transform) * 0.9, 7);
-        const startX = Math.min(...startLine.items.map((it) => it.transform[4]));
-
-        // Single white rect covering the entire paragraph block
-        const topY    = startLine.y + fs * 1.3;
-        const bottomY = endLine.y - fs * 0.5;
-        page.drawRectangle({
-          x: 36, y: bottomY,
-          width: pw - 72,
-          height: Math.max(topY - bottomY, fs * 3.5),
-          color: rgb(1, 1, 1),
-        });
-
-        // Replacement paragraph (no "minimum of 1,000 €")
-        const replacement =
-          "Label will fund and administer a marketing budget for third-party expenses " +
-          "incurred in connection with the marketing and promotion of the Master (\u00ab the Fund \u00bb). " +
-          "This Fund shall be recoupable against Licensor\u2019s Royalty.";
-        const wrapped = wrapText(replacement, helvetica, fs, pw - 130);
-        let dy = startLine.y;
-        for (const wl of wrapped) {
-          page.drawText(wl, { x: startX, y: dy, size: fs, font: helvetica, color: rgb(0.1, 0.1, 0.1) });
-          dy -= fs * 1.5;
-        }
-        c2done = true;
-        break outerC2;
-      }
-      corrections.push({ ok: c2done, label: "Montant 1 000 \u20ac supprim\u00e9 \u2014 clause marketing r\u00e9\u00e9crite" });
-
-      // ── CORRECTION 3: Ajout clause Playlist Placement ──────────────────────
-      setProgress("3/4 — Clause Playlist…");
-      let c3done = false;
-      outerC3: for (let pi = 0; pi < pageCount; pi++) {
-        const page  = pdfDoc.getPage(pi);
-        const lines = groupByLine(pageItems[pi]);
-
-        // Anchor = line ending the paragraph ("relevant third parties" or "third parties.")
-        const anchor = lines.find(
-          (l) => l.str.includes("relevant third") ||
-                 (l.str.toLowerCase().includes("third") && l.str.toLowerCase().includes("parties"))
-        );
-        if (!anchor) continue;
-
-        const [, , , , anchorX] = anchor.items[0].transform;
-        const anchorY = anchor.y;
-        const fs      = Math.max(estimateFontSize(anchor.items[0].transform) * 0.85, 7.5);
-
-        const clause =
-          "Playlist Placement. The Label shall place the Master in its promotional playlist network " +
-          "as part of its marketing efforts. Such playlist placement shall be valued at \u20ac20 (twenty euros) " +
-          "per month and shall be considered a marketing expense recoupable against Licensor\u2019s Royalty " +
-          "pursuant to this Section 3, for as long as the Master remains active in the Label\u2019s playlist " +
-          "network. The Label does not guarantee any specific streaming results or audience numbers from such placements.";
-
-        const wrapped = wrapText(clause, helvetica, fs, 460);
-        let dy = anchorY - fs * 2.4; // gap below anchor paragraph
-        for (const wl of wrapped) {
-          page.drawText(wl, { x: anchorX, y: dy, size: fs, font: helvetica, color: rgb(0.1, 0.1, 0.1) });
-          dy -= fs * 1.55;
-        }
-        c3done = true;
-        break outerC3;
-      }
-      corrections.push({ ok: c3done, label: "Clause Playlist Placement ajout\u00e9e (\u00a73)" });
-
-      // ── CORRECTION 4: Remplacement logo page 1 ─────────────────────────────
-      setProgress("4/4 — Remplacement logo…");
-      let c4done = false;
-      try {
-        const logoRes = await fetch(logoUrl);
-        if (!logoRes.ok) throw new Error("Logo introuvable (/logovtx.png)");
-        const logoBytes = await logoRes.arrayBuffer();
-        const logoImg   = await pdfDoc.embedPng(logoBytes);
-
-        const page0 = pdfDoc.getPage(0);
-        const { width: pw, height: ph } = page0.getSize();
-
-        // Centre the logo horizontally, place it where the original logo was (upper-middle area)
-        const iw = 100;
-        const ih = (logoImg.height / logoImg.width) * iw;
-        const ix = (pw - iw) / 2;
-        const iy = ph - 175; // approx top-area of A4/Letter page
-
-        // White rect to cover the original RYLARIS logo
-        page0.drawRectangle({
-          x: ix - 30, y: iy - 20,
-          width: iw + 60, height: ih + 50,
-          color: rgb(1, 1, 1),
-        });
-        page0.drawImage(logoImg, { x: ix, y: iy, width: iw, height: ih });
-        c4done = true;
-      } catch (e) {
-        console.warn("[contracts] Logo error:", e.message);
-      }
-      corrections.push({ ok: c4done, label: "Logo Veltrix Records int\u00e9gr\u00e9 (page\u00a01)" });
-
-      // ── Save ────────────────────────────────────────────────────────────────
-      setProgress("Finalisation du PDF…");
-      const saved = await pdfDoc.save();
+      const { pdfBytes: saved, corrLog } = await processContract(bytes, setProgress);
       setResult(saved);
-      setLog(corrections);
+      setLog([
+        { ok: corrLog.c1 > 0, label: `RYLARIS \u2192 VELTRIX RECORDS (${corrLog.c1} occurrence${corrLog.c1 !== 1 ? "s" : ""})` },
+        { ok: corrLog.c2,      label: "Montant 1\u202f000\u00a0\u20ac supprim\u00e9 \u2014 clause marketing r\u00e9\u00e9crite" },
+        { ok: corrLog.c3,      label: "Clause Playlist Placement ajout\u00e9e (\u00a73)" },
+        { ok: corrLog.c4,      label: "Logo Veltrix Records int\u00e9gr\u00e9 (page\u00a01)" },
+      ]);
       setStep("done");
-
     } catch (e) {
       console.error("[contracts]", e);
-      show("Erreur traitement : " + e.message, "error");
+      show("Erreur traitement\u00a0: " + e.message, "error");
       setStep("idle");
     }
   };
 
   const download = () => {
     if (!result) return;
-    const blob = new Blob([result], { type: "application/pdf" });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href     = url;
-    a.download = (file?.name || "contrat").replace(/\.pdf$/i, "") + "_veltrix.pdf";
+    const url = URL.createObjectURL(new Blob([result], { type: "application/pdf" }));
+    const a   = Object.assign(document.createElement("a"), {
+      href:     url,
+      download: (file?.name || "contrat").replace(/\.pdf$/i, "") + "_veltrix.pdf",
+    });
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -385,9 +355,8 @@ function FixTab({ show }) {
       {step === "processing" && (
         <div style={{ height: 4, background: "var(--border)", borderRadius: 4, overflow: "hidden" }}>
           <div style={{
-            height: "100%", width: "100%",
-            background: "var(--green)", borderRadius: 4,
-            animation: "indeterminate 1.4s ease infinite",
+            height: "100%", width: "100%", background: "var(--green)",
+            borderRadius: 4, animation: "indeterminate 1.4s ease infinite",
           }} />
         </div>
       )}
@@ -419,7 +388,8 @@ function FixTab({ show }) {
 }
 
 // ── TAB 2 — Vérifier le contrat ───────────────────────────────────────────────
-
+// Designed for TEXT-BASED PDFs (raw contracts before correction).
+// Canvas-output PDFs are image-based and have no extractable text.
 function CheckTab({ show }) {
   const [file,     setFile]     = useState(null);
   const [bytes,    setBytes]    = useState(null);
@@ -428,12 +398,8 @@ function CheckTab({ show }) {
   const [dragging, setDragging] = useState(false);
 
   const handleFile = useCallback((f) => {
-    if (!f.name.toLowerCase().endsWith(".pdf")) {
-      show("Fichier PDF requis", "error");
-      return;
-    }
-    setFile(f);
-    setResults(null);
+    if (!f.name.toLowerCase().endsWith(".pdf")) { show("Fichier PDF requis", "error"); return; }
+    setFile(f); setResults(null);
     const reader = new FileReader();
     reader.onload = (e) => setBytes(new Uint8Array(e.target.result));
     reader.readAsArrayBuffer(f);
@@ -443,30 +409,21 @@ function CheckTab({ show }) {
 
   const runChecks = async () => {
     if (!bytes) return;
-    setChecking(true);
-    setResults(null);
+    setChecking(true); setResults(null);
     try {
       const pdfJsDoc = await pdfjsLib.getDocument({ data: bytes }).promise;
       let fullText = "";
       for (let i = 1; i <= pdfJsDoc.numPages; i++) {
-        const page    = await pdfJsDoc.getPage(i);
-        const content = await page.getTextContent();
-        fullText += " " + content.items
-          .filter((it) => typeof it.str === "string")
-          .map((it) => it.str)
-          .join(" ");
+        const pg = await pdfJsDoc.getPage(i);
+        const c  = await pg.getTextContent();
+        fullText += " " + c.items.filter((it) => typeof it.str === "string").map((it) => it.str).join(" ");
       }
 
-      // NOTE: checks use POSITIVE presence tests (not absence tests).
-      // pdfjs extracts the full content stream — text visually covered by
-      // white rectangles is still readable in the stream. So we check that
-      // the REPLACEMENT text is present, not that the old text is absent.
       const checks = [
         {
-          label:  "Clause marketing sans budget minimum de 1\u202f000\u202f\u20ac",
-          detail: "La clause de budget minimum a \u00e9t\u00e9 remplac\u00e9e",
-          // The replacement paragraph starts with this phrase — absent in raw contracts.
-          pass:   /a marketing budget for third-party expenses/i.test(fullText),
+          label:  "Aucune clause budget minimum 1\u202f000\u202f\u20ac",
+          detail: "La mention \u00ab minimum of 1,000 \u20ac \u00bb est absente",
+          pass:   !/minimum\s+of\s*1[,\s.]?000/i.test(fullText) && !/One\s+Thousand/i.test(fullText),
         },
         {
           label:  "Clause Playlist Placement pr\u00e9sente",
@@ -479,7 +436,7 @@ function CheckTab({ show }) {
 
       setResults(checks);
     } catch (e) {
-      show("Erreur analyse : " + e.message, "error");
+      show("Erreur analyse\u00a0: " + e.message, "error");
     } finally {
       setChecking(false);
     }
@@ -509,16 +466,10 @@ function CheckTab({ show }) {
         <>
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {results.map((r, i) => (
-              <div
-                key={i}
-                className="card"
-                style={{ padding: "14px 18px", display: "flex", alignItems: "center", gap: 16 }}
-              >
+              <div key={i} className="card" style={{ padding: "14px 18px", display: "flex", alignItems: "center", gap: 16 }}>
                 <span style={{ fontSize: 22, flexShrink: 0 }}>{r.pass ? "\u2705" : "\u274C"}</span>
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: r.pass ? "var(--text)" : "var(--red)" }}>
-                    {r.label}
-                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: r.pass ? "var(--text)" : "var(--red)" }}>{r.label}</div>
                   <div style={{ fontSize: 11, color: "var(--faint)", marginTop: 4 }}>{r.detail}</div>
                 </div>
               </div>
@@ -526,22 +477,17 @@ function CheckTab({ show }) {
           </div>
 
           <div style={{
-            padding: "20px 24px",
-            borderRadius: 12,
+            padding: "20px 24px", borderRadius: 12, textAlign: "center",
             background: allPass ? "rgba(29,185,84,.1)" : "rgba(255,85,85,.08)",
-            border:     `1px solid ${allPass ? "rgba(29,185,84,.3)" : "rgba(255,85,85,.3)"}`,
-            textAlign: "center",
+            border: `1px solid ${allPass ? "rgba(29,185,84,.3)" : "rgba(255,85,85,.3)"}`,
           }}>
             <div style={{ fontSize: 32, marginBottom: 10 }}>{allPass ? "\u2705" : "\u274C"}</div>
-            <div style={{
-              fontFamily: "var(--head)", fontSize: 20, fontWeight: 800,
-              color: allPass ? "var(--green)" : "var(--red)",
-            }}>
+            <div style={{ fontFamily: "var(--head)", fontSize: 20, fontWeight: 800, color: allPass ? "var(--green)" : "var(--red)" }}>
               {allPass ? "Contrat conforme" : "Contrat non conforme"}
             </div>
             <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 8 }}>
               {allPass
-                ? "Toutes les corrections Veltrix ont \u00e9t\u00e9 appliqu\u00e9es."
+                ? "Toutes les clauses Veltrix sont pr\u00e9sentes."
                 : `${results.filter((r) => !r.pass).length} point(s) \u00e0 corriger avant signature.`}
             </div>
           </div>
@@ -552,7 +498,6 @@ function CheckTab({ show }) {
 }
 
 // ── Main export ───────────────────────────────────────────────────────────────
-
 export default function ContractsPage() {
   const [activeTab, setActiveTab] = useState("fix");
   const { toast, show } = useToast();
@@ -569,11 +514,10 @@ export default function ContractsPage() {
           Contrats
         </h1>
         <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 5 }}>
-          Correction automatique et v\u00e9rification de conformit\u00e9 des contrats PDF. Traitement 100% local.
+          Correction automatique et v\u00e9rification de conformit\u00e9. Traitement 100\u00a0% local.
         </p>
       </div>
 
-      {/* Tab switcher */}
       <div style={{ display: "flex", gap: 8, marginBottom: 22 }}>
         {TABS.map((t) => (
           <button
