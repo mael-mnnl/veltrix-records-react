@@ -5,6 +5,7 @@ import BroadcastPage from "./BroadcastPage";
 import RadarPage from "./RadarPage";
 import StatsPage from "./StatsPage";
 import AlertsPage from "./AlertsPage";
+import ContractsPage from "./ContractsPage";
 import { clearRateLimit } from "../utils/spotify";
 
 // ── Compute initial unseen alerts count from localStorage (no API) ────────────
@@ -105,6 +106,7 @@ export default function Main({ user, onLogout, onReconnect, scopeWarning }) {
         {tab === "radar"     && <RadarPage />}
         {tab === "stats"     && <StatsPage />}
         {tab === "alerts"    && <AlertsPage onUnseenChange={setUnseenAlerts} />}
+        {tab === "contracts" && <ContractsPage />}
       </div>
     </div>
   );

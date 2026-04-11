@@ -4,6 +4,7 @@ const NAV = [
   { id: "radar",     icon: "📡", label: "Radar" },
   { id: "stats",     icon: "📊", label: "Stats" },
   { id: "alerts",    icon: "🔔", label: "Alertes" },
+  { id: "contracts", icon: "📄", label: "Contrats" },
 ];
 
 export default function Sidebar({ user, tab, setTab, onLogout, onReconnect, badges = {}, scopeWarning }) {
