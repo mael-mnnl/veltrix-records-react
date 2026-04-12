@@ -164,12 +164,9 @@ async function processContract(pdfBytes, onProgress) {
         // TODO: scroll down fix — may overlap next paragraph if insufficient vertical space
         wrapCanvasText(
           ctx,
-          "Playlist Placement. The Label shall place the Master in its promotional playlist " +
-          "network as part of its marketing efforts. Such playlist placement shall be valued " +
-          "at \u20ac20 (twenty euros) per month and shall be considered a marketing expense " +
-          "recoupable against Licensor\u2019s Royalty pursuant to this Section 3, for as long " +
-          "as the Master remains active in the Label\u2019s playlist network. The Label does " +
-          "not guarantee any specific streaming results or audience numbers from such placements.",
+          "Playlist Placement. The Label shall provide promotional services including playlist " +
+          "placement, valued at \u20ac50 (fifty euros) as a non-cash marketing advance, " +
+          "recoupable against Licensor\u2019s Royalty.",
           insertX, insertY,
           viewport.width - insertX - 42,
           fs * 1.5
@@ -430,7 +427,7 @@ function CheckTab({ show }) {
           detail: "La valorisation \u20ac20\/mois est int\u00e9gr\u00e9e",
           pass:
             /Playlist\s*Placement/i.test(fullText) &&
-            /\u20ac\s*20|twenty\s+euros|20\s*euros/i.test(fullText),
+            /\u20ac\s*50|fifty\s+euros|50\s*euros|non-cash/i.test(fullText),
         },
       ];
 
