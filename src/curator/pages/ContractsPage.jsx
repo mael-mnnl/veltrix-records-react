@@ -191,6 +191,15 @@ export default function ContractsPage() {
 
   return (
     <div className="fade-in" style={{ maxWidth: 720 }}>
+      {/* Warning banner */}
+      <div style={{
+        background: "rgba(255,85,85,.12)", border: "1px solid rgba(255,85,85,.4)",
+        borderRadius: 10, padding: "12px 18px", marginBottom: 22,
+        color: "var(--red)", fontSize: 13, fontWeight: 600,
+      }}>
+        ⚠️ L&apos;utilise pas encore Axel, ça marche pas.
+      </div>
+
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
         <h1 style={{ fontFamily: "var(--head)", fontSize: 26, fontWeight: 800, letterSpacing: "-.8px" }}>
