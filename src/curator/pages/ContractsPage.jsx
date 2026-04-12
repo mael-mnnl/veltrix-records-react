@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from "react";
 import { PDFDocument } from "pdf-lib";
 import * as pdfjsLib from "pdfjs-dist";
 import { Toast, useToast } from "../components/Toast";
-import logoUrl from "../../assets/logovtx.png";
+import logoUrl from "../../assets/logovtxnoir.png";
 
 // ── pdfjs worker (v5, ESM) ────────────────────────────────────────────────────
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
