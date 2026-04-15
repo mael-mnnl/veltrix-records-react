@@ -151,7 +151,7 @@ export default function DebugPage() {
 
   return (
     <div style={styles.page}>
-      <h1 style={styles.title}>Debug — CuratorOS</h1>
+      <h1 style={styles.title}>Debug — VTXHub</h1>
 
       <TokenInfo />
 

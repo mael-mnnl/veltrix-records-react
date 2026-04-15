@@ -15,11 +15,13 @@ export function useToast() {
 
 export function Toast({ toast }) {
   if (!toast) return null;
-  const icon  = toast.type === "success" ? "✓" : toast.type === "error" ? "✕" : "ℹ";
-  const color = toast.type === "success" ? "var(--green)" : toast.type === "error" ? "var(--red)" : "var(--muted)";
+  const icon = toast.type === "success" ? "✓" : toast.type === "error" ? "✕" : "ℹ";
+  const cls  = toast.type === "success" ? "toast toast-success"
+             : toast.type === "error"   ? "toast toast-error"
+             :                            "toast toast-info";
   return (
-    <div className="toast">
-      <span style={{ color, fontWeight: 700 }}>{icon}</span>
+    <div className={cls}>
+      <span>{icon}</span>
       {toast.msg}
     </div>
   );

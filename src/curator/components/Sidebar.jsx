@@ -11,8 +11,8 @@ export default function Sidebar({ user, tab, setTab, onLogout, onReconnect, badg
   return (
     <aside className="sidebar">
       <div style={{ padding: "6px 10px 20px" }}>
-        <div style={{ fontFamily: "var(--head)", fontSize: 17, fontWeight: 800, color: "var(--green)", letterSpacing: "-.5px" }}>
-          🎧 CuratorOS
+        <div style={{ fontFamily: "var(--head)", fontSize: 16, fontWeight: 900, color: "#fff", letterSpacing: "-.5px", textTransform: "uppercase" }}>
+          VTXHub
         </div>
       </div>
 

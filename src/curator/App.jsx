@@ -11,11 +11,11 @@ class ErrorBoundary extends Component {
   static getDerivedStateFromError(e) { return { error: e }; }
   render() {
     if (this.state.error) return (
-      <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12, fontFamily:"sans-serif", color:"#eeeef8", background:"#080810" }}>
-        <div style={{ fontSize:32 }}>⚠</div>
-        <div style={{ fontWeight:700 }}>Une erreur est survenue</div>
-        <div style={{ fontSize:13, color:"#7777aa", maxWidth:400, textAlign:"center" }}>{this.state.error.message}</div>
-        <button onClick={() => window.location.reload()} style={{ marginTop:8, padding:"8px 20px", background:"#1DB954", border:"none", borderRadius:8, color:"#000", fontWeight:700, cursor:"pointer" }}>
+      <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", flexDirection:"column", gap:12, fontFamily:"'Inter',sans-serif", color:"#d0d0d0", background:"#080808" }}>
+        <div style={{ fontSize:28, color:"#555", letterSpacing:"2px" }}>⚠</div>
+        <div style={{ fontWeight:700, letterSpacing:"-0.5px" }}>Une erreur est survenue</div>
+        <div style={{ fontSize:12, color:"#555", maxWidth:400, textAlign:"center", lineHeight:1.6 }}>{this.state.error.message}</div>
+        <button onClick={() => window.location.reload()} style={{ marginTop:12, padding:"12px 28px", background:"#fff", border:"none", color:"#000", fontWeight:700, cursor:"pointer", fontSize:11, letterSpacing:"2px", textTransform:"uppercase" }}>
           Recharger
         </button>
       </div>
@@ -114,7 +114,7 @@ export default function App() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   if (loading) return (
-    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", color:"var(--muted)", fontFamily:"var(--sans)" }}>
+    <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"#080808", color:"#333", fontFamily:"'Inter',sans-serif", fontSize:"0.65rem", letterSpacing:"4px", textTransform:"uppercase" }}>
       Connexion…
     </div>
   );
