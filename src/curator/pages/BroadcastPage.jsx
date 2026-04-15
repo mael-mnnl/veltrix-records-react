@@ -262,7 +262,7 @@ export default function BroadcastPage() {
   const positionsVary = scanFound
     ? new Set(scanFound.present.map(p => p.position)).size > 1
     : false;
-  const showUniformize = (scanFound?.present.length ?? 0) >= 2 && positionsVary;
+  const showUniformize = (scanFound?.present.length ?? 0) >= 1;
 
   const toggleRemove = (id) => setSelectedRemove(prev => {
     const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next;
@@ -370,9 +370,23 @@ export default function BroadcastPage() {
                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: ".06em" }}>
                   ✅ PRÉSENT DANS {scanFound.present.length} PLAYLIST{scanFound.present.length !== 1 ? "S" : ""}
                 </div>
-                <button className="btn btn-ghost btn-sm" onClick={() => runScan()} disabled={actionWorking}>
-                  ↺ Re-scanner
-                </button>
+                <div style={{ display: "flex", gap: 6 }}>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => {
+                      if (selectedRemove.size === scanFound.present.length)
+                        setSelectedRemove(new Set());
+                      else
+                        setSelectedRemove(new Set(scanFound.present.map(p => p.playlist.id)));
+                    }}
+                    disabled={actionWorking}
+                  >
+                    {selectedRemove.size === scanFound.present.length ? "Tout décocher" : "Tout cocher"}
+                  </button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => runScan()} disabled={actionWorking}>
+                    ↺ Re-scanner
+                  </button>
+                </div>
               </div>
 
               {scanFound.present.length === 0 ? (
@@ -457,8 +471,24 @@ export default function BroadcastPage() {
 
             {/* ❌ Absent */}
             <div className="card" style={{ padding: 16 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: ".06em", marginBottom: 12 }}>
-                ❌ ABSENT DE {scanFound.absent.length} PLAYLIST{scanFound.absent.length !== 1 ? "S" : ""}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: ".06em" }}>
+                  ❌ ABSENT DE {scanFound.absent.length} PLAYLIST{scanFound.absent.length !== 1 ? "S" : ""}
+                </div>
+                {scanFound.absent.length > 0 && (
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => {
+                      if (selectedAdd.size === scanFound.absent.length)
+                        setSelectedAdd(new Set());
+                      else
+                        setSelectedAdd(new Set(scanFound.absent.map(pl => pl.id)));
+                    }}
+                    disabled={actionWorking}
+                  >
+                    {selectedAdd.size === scanFound.absent.length ? "Tout décocher" : "Tout cocher"}
+                  </button>
+                )}
               </div>
 
               {scanFound.absent.length === 0 ? (
