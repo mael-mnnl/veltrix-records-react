@@ -1,6 +1,6 @@
 import { useState, useEffect, Fragment, useMemo } from "react";
 import {
-  searchArtist, getArtistAlbums, getAlbumTracks, getTrackById,
+  searchArtist, getArtistAlbums, getAlbumsBatch, getAlbumTracks, getTrackById,
   getAllPlaylists, addTrackToPlaylist,
   getMe, createPlaylist, addTracksToPlaylist, getRecommendations, uploadPlaylistCover,
   isRLError, rlSecsFromError, isRateLimited,
@@ -212,10 +212,23 @@ export default function RadarPage() {
         });
 
         try {
-          const data     = await getArtistAlbums(artistId);
-          const releases = (data?.items || [])
-            .filter(a => isWithin30Days(a.release_date))
-            .map(a => ({
+          const data   = await getArtistAlbums(artistId);
+          const within = (data?.items || []).filter(a => isWithin30Days(a.release_date));
+
+          // getArtistAlbums returns simplified objects — no popularity field.
+          // Batch-fetch full album objects (≤20 per request) to get real scores.
+          const popMap = {};
+          if (within.length > 0) {
+            try {
+              const full = await getAlbumsBatch(within.map(a => a.id));
+              for (const fa of full?.albums ?? []) {
+                if (fa?.id) popMap[fa.id] = fa.popularity ?? 0;
+              }
+            } catch {}
+            await d500();
+          }
+
+          const releases = within.map(a => ({
               id:          a.id,
               uri:         a.uri,
               trackId:     null,
@@ -225,8 +238,7 @@ export default function RadarPage() {
               cover:       a.images?.[0]?.url ?? null,
               coverMedium: a.images?.[1]?.url ?? a.images?.[0]?.url ?? null,
               type:        a.album_type,
-              // album.popularity from simplified object — 0 if absent, no extra request
-              popularity:  a.popularity ?? 0,
+              popularity:  popMap[a.id] ?? 0,
             }));
 
           ac[artistId] = { releases, cachedAt: now };
@@ -292,7 +304,7 @@ export default function RadarPage() {
         } catch {}
       }
 
-      const pl = await createPlaylist(userId, `${release.name} - 1 HOUR`, `${release.name} ${PLAYLIST_DESC}`);
+      const pl = await createPlaylist(userId, `${release.name} - 1 HOUR`, `${release.name} - ${INLINE_DESC_SUFFIX}`);
       await addTracksToPlaylist(pl.id, Array(5).fill(trackUri));
 
       if (trackId) {
