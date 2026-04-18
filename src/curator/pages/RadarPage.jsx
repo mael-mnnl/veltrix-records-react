@@ -13,6 +13,7 @@ const INLINE_DESC_SUFFIX = "1 HOUR PLAYLIST ig: pxroducer - SEKIMANE - CONFESS Y
 
 // ── Cache keys ────────────────────────────────────────────────────────────────
 const LS_IDS    = "radar_ids_v1";          // name → id  (30 days, never refetch)
+const LS_POPS   = "radar_artist_pops_v1";  // artistId → popularity (filled during resolution)
 const LS_ART    = "radar_artist_cache_v2"; // artistId → { releases[], cachedAt }  (12h)
 const LS_RESUME = "radar_scan_resume_v1";  // { index, total, cachedAt }  (30 min)
 const RESUME_TTL = 30 * 60_000;
@@ -96,18 +97,10 @@ export default function RadarPage() {
   const [dateFilter,   setDateFilter]   = useState("all");     // all | 14d | 30d
   const { toast, show } = useToast();
 
-  // ── Potential scores (calculated on ALL releases, never filtered) ────────────
+  // ── Score = popularité directe (0-100) ───────────────────────────────────────
   const scoreMap = useMemo(() => {
     if (!releases.length) return {};
-    const now = Date.now();
-    const velocities = releases.map(r => {
-      const age = Math.max(1, (now - new Date(r.releaseDate).getTime()) / 86_400_000);
-      return { id: r.id, vel: (r.popularity ?? 0) / age };
-    });
-    const maxVel = Math.max(...velocities.map(v => v.vel), 0.001);
-    return Object.fromEntries(
-      velocities.map(({ id, vel }) => [id, Math.round((vel / maxVel) * 100)])
-    );
+    return Object.fromEntries(releases.map(r => [r.id, r.popularity ?? 0]));
   }, [releases]);
 
   // ── Sorted + filtered view ────────────────────────────────────────────────────
@@ -171,9 +164,11 @@ export default function RadarPage() {
     const now = Date.now();
 
     try {
-      // ── Phase 1: resolve artist IDs (30-day cache, never refetch if present) ──
+      // ── Phase 1: resolve artist IDs + capture artist popularity ──────────────
       let ids;
       try { ids = JSON.parse(localStorage.getItem(LS_IDS)) || {}; } catch { ids = {}; }
+      let artistPops;
+      try { artistPops = JSON.parse(localStorage.getItem(LS_POPS)) || {}; } catch { artistPops = {}; }
 
       const toResolve = SEED_ARTISTS.filter(n => !ids[n]);
       for (let i = 0; i < toResolve.length; i++) {
@@ -181,10 +176,15 @@ export default function RadarPage() {
         try {
           const d = await searchArtist(toResolve[i]);
           const a = d?.artists?.items?.[0];
-          if (a?.id) ids[toResolve[i]] = a.id;
+          if (a?.id) {
+            ids[toResolve[i]] = a.id;
+            // Store artist popularity — the only reliable non-zero metric for small artists
+            artistPops[a.id] = a.popularity ?? 0;
+          }
         } catch (e) {
           if (isRLError(e)) {
             localStorage.setItem(LS_IDS, JSON.stringify(ids));
+            localStorage.setItem(LS_POPS, JSON.stringify(artistPops));
             setError(`Rate limit — réessaie dans ${Math.ceil(rlSecsFromError(e) / 60)} min`);
             return;
           }
@@ -192,6 +192,7 @@ export default function RadarPage() {
         await d500();
       }
       localStorage.setItem(LS_IDS, JSON.stringify(ids));
+      localStorage.setItem(LS_POPS, JSON.stringify(artistPops));
 
       // ── Phase 2: per-artist album scan (12h TTL, incremental display) ─────
       const entries = Object.entries(ids);
@@ -266,7 +267,8 @@ export default function RadarPage() {
               cover:       a.images?.[0]?.url ?? null,
               coverMedium: a.images?.[1]?.url ?? a.images?.[0]?.url ?? null,
               type:        a.album_type,
-              popularity:  albumPopMap[a.id] ?? 0,
+              // Best of: album pop, track pop, or artist pop (always non-zero for registered artists)
+              popularity:  Math.max(albumPopMap[a.id] ?? 0, artistPops[artistId] ?? 0),
             }));
 
           ac[artistId] = { releases, cachedAt: now };
@@ -308,6 +310,8 @@ export default function RadarPage() {
 
   function handleForceRefresh() {
     localStorage.removeItem(LS_ART);
+    localStorage.removeItem(LS_IDS);   // Force re-resolution so Phase 1 captures artist popularity
+    localStorage.removeItem(LS_POPS);
     scan(true);
   }
 
