@@ -1,6 +1,6 @@
 import { useState, useEffect, Fragment, useMemo } from "react";
 import {
-  searchArtist, getArtistAlbums, getAlbumsBatch, getAlbumTracks, getTrackById,
+  searchArtist, getArtistAlbums, getAlbumsBatch, getTracksBatch, getAlbumTracks, getTrackById,
   getAllPlaylists, addTrackToPlaylist,
   getMe, createPlaylist, addTracksToPlaylist, getRecommendations, uploadPlaylistCover,
   isRLError, rlSecsFromError, isRateLimited,
@@ -216,29 +216,57 @@ export default function RadarPage() {
           const within = (data?.items || []).filter(a => isWithin30Days(a.release_date));
 
           // getArtistAlbums returns simplified objects — no popularity field.
-          // Batch-fetch full album objects (≤20 per request) to get real scores.
-          const popMap = {};
+          // Strategy: batch-fetch full album objects for album popularity, then
+          // also fetch the first track of each album to get track-level popularity
+          // (more reliable for small artists whose album popularity is often 0).
+          const albumPopMap = {};
+          const firstTrackIdMap = {}; // albumId → trackId
           if (within.length > 0) {
+            // Step 1: batch-fetch full album objects (includes album popularity + tracklist)
             try {
               const full = await getAlbumsBatch(within.map(a => a.id));
               for (const fa of full?.albums ?? []) {
-                if (fa?.id) popMap[fa.id] = fa.popularity ?? 0;
+                if (!fa?.id) continue;
+                albumPopMap[fa.id] = fa.popularity ?? 0;
+                // Grab first track id from the embedded tracklist (no extra call needed)
+                const firstTrack = fa.tracks?.items?.[0];
+                if (firstTrack?.id) firstTrackIdMap[fa.id] = firstTrack.id;
               }
             } catch {}
             await d500();
+
+            // Step 2: batch-fetch full track objects to get track-level popularity
+            const trackIds = Object.values(firstTrackIdMap).filter(Boolean);
+            const trackPopMap = {}; // trackId → popularity
+            if (trackIds.length > 0) {
+              try {
+                const { tracks } = await getTracksBatch(trackIds) ?? {};
+                for (const tr of tracks ?? []) {
+                  if (tr?.id) trackPopMap[tr.id] = tr.popularity ?? 0;
+                }
+              } catch {}
+              await d500();
+            }
+
+            // Merge: use the higher of album popularity vs track popularity
+            for (const albumId of Object.keys(albumPopMap)) {
+              const tId = firstTrackIdMap[albumId];
+              const trackPop = tId ? (trackPopMap[tId] ?? 0) : 0;
+              albumPopMap[albumId] = Math.max(albumPopMap[albumId], trackPop);
+            }
           }
 
           const releases = within.map(a => ({
               id:          a.id,
               uri:         a.uri,
-              trackId:     null,
+              trackId:     firstTrackIdMap[a.id] ?? null,
               name:        a.name,
               artistName:  a.artists?.[0]?.name ?? name,
               releaseDate: a.release_date,
               cover:       a.images?.[0]?.url ?? null,
               coverMedium: a.images?.[1]?.url ?? a.images?.[0]?.url ?? null,
               type:        a.album_type,
-              popularity:  popMap[a.id] ?? 0,
+              popularity:  albumPopMap[a.id] ?? 0,
             }));
 
           ac[artistId] = { releases, cachedAt: now };
