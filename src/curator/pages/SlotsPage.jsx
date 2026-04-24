@@ -339,8 +339,18 @@ export default function SlotsPage() {
           {track && (
             <>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: ".05em", marginBottom: 6, textTransform: "uppercase" }}>
-                  Playlists concernées ({selPlIds.size})
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: ".05em", textTransform: "uppercase" }}>
+                    Playlists concernées ({selPlIds.size})
+                  </div>
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setSelPlIds(new Set(playlists.map(p => p.id)))}>
+                      Tous
+                    </button>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setSelPlIds(new Set())}>
+                      Aucun
+                    </button>
+                  </div>
                 </div>
                 <div style={{ maxHeight: 220, overflowY: "auto", border: "1px solid var(--border)", background: "var(--surface2)" }}>
                   {playlists.map(pl => (
