@@ -5,7 +5,6 @@ import { getMe } from "./utils/spotify";
 import GatePage from "./pages/GatePage";
 import Login from "./pages/Login";
 import Main from "./pages/Main";
-import DebugPage from "./pages/DebugPage";
 
 class ErrorBoundary extends Component {
   constructor(props) { super(props); this.state = { error: null }; }
@@ -142,7 +141,6 @@ export default function App() {
     </div>
   );
 
-  if (window.location.pathname === "/curator/debug") return <ErrorBoundary><DebugPage /></ErrorBoundary>;
   if (!gateOk) return <ErrorBoundary><GatePage onSuccess={() => setGateOk(true)} /></ErrorBoundary>;
   if (!token) return <ErrorBoundary><Login /></ErrorBoundary>;
   return (
