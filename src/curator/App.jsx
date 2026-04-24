@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, Component } from "react";
 import './curator.css';
 import { exchangeCodeForToken, getValidToken, logout, hasRequiredScopes, redirectToSpotify } from "./utils/auth";
 import { getMe } from "./utils/spotify";
+import GatePage from "./pages/GatePage";
 import Login from "./pages/Login";
 import Main from "./pages/Main";
 import DebugPage from "./pages/DebugPage";
@@ -24,12 +25,34 @@ class ErrorBoundary extends Component {
   }
 }
 
+async function checkGateToken() {
+  const token = localStorage.getItem("vtx_gate_token");
+  if (!token) return false;
+  try {
+    const res  = await fetch("/api/curator-verify", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ token }),
+    });
+    const data = await res.json();
+    return data.valid === true;
+  } catch {
+    return false;
+  }
+}
+
 export default function App() {
+  const [gateOk, setGateOk]         = useState(null); // null=vérification, false=bloqué, true=ok
   const [token, setToken]           = useState(null);
   const [user, setUser]             = useState(null);
   const [loading, setLoading]       = useState(true);
   const [scopeWarning, setScopeWarning] = useState(false);
   const initDone = useRef(false);
+
+  // ── Gate check ─────────────────────────────────────────────────────────────
+  useEffect(() => {
+    checkGateToken().then(ok => setGateOk(ok));
+  }, []);
 
   // ── Auth init ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -113,13 +136,14 @@ export default function App() {
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
-  if (loading) return (
+  if (gateOk === null || loading) return (
     <div style={{ minHeight:"100vh", display:"flex", alignItems:"center", justifyContent:"center", background:"#080808", color:"#333", fontFamily:"'Inter',sans-serif", fontSize:"0.65rem", letterSpacing:"4px", textTransform:"uppercase" }}>
       Connexion…
     </div>
   );
 
   if (window.location.pathname === "/curator/debug") return <ErrorBoundary><DebugPage /></ErrorBoundary>;
+  if (!gateOk) return <ErrorBoundary><GatePage onSuccess={() => setGateOk(true)} /></ErrorBoundary>;
   if (!token) return <ErrorBoundary><Login /></ErrorBoundary>;
   return (
     <ErrorBoundary>
