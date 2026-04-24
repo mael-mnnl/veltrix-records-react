@@ -6,7 +6,10 @@ import RadarPage from "./RadarPage";
 import StatsPage from "./StatsPage";
 import AlertsPage from "./AlertsPage";
 import ContractsPage from "./ContractsPage";
+import SlotsPage from "./SlotsPage";
 import { clearRateLimit } from "../utils/spotify";
+import { getActiveSlots, subscribeToSlots, unsubscribeSlots } from "../utils/slots";
+import { isSupabaseConfigured } from "../utils/supabase";
 
 // ── Compute initial unseen alerts count from localStorage (no API) ────────────
 function getInitialUnseen() {
@@ -69,6 +72,7 @@ function RateLimitBanner({ until, onExpire }) {
 export default function Main({ user, onLogout, onReconnect, scopeWarning }) {
   const [tab,          setTab]          = useState("playlists");
   const [unseenAlerts, setUnseenAlerts] = useState(getInitialUnseen);
+  const [activeSlotsCount, setActiveSlotsCount] = useState(0);
   const [rlUntil,      setRlUntil]      = useState(() => {
     try {
       const t = parseInt(localStorage.getItem("spotify_rl_until") || "0");
@@ -83,6 +87,15 @@ export default function Main({ user, onLogout, onReconnect, scopeWarning }) {
     return () => window.removeEventListener("spotify-rate-limit", handle);
   }, []);
 
+  // Active slots count + realtime sync for sidebar badge
+  useEffect(() => {
+    if (!isSupabaseConfigured) return;
+    const refresh = () => getActiveSlots().then(s => setActiveSlotsCount(s.length)).catch(() => {});
+    refresh();
+    const channel = subscribeToSlots(refresh);
+    return () => unsubscribeSlots(channel);
+  }, []);
+
   const isRL = rlUntil && rlUntil > Date.now();
 
   return (
@@ -95,7 +108,7 @@ export default function Main({ user, onLogout, onReconnect, scopeWarning }) {
         setTab={setTab}
         onLogout={onLogout}
         onReconnect={onReconnect}
-        badges={{ alerts: unseenAlerts }}
+        badges={{ alerts: unseenAlerts, slots: activeSlotsCount }}
         rateLimited={isRL}
         scopeWarning={scopeWarning}
       />
@@ -106,6 +119,7 @@ export default function Main({ user, onLogout, onReconnect, scopeWarning }) {
         {tab === "radar"     && <RadarPage />}
         {tab === "stats"     && <StatsPage />}
         {tab === "alerts"    && <AlertsPage onUnseenChange={setUnseenAlerts} />}
+        {tab === "slots"     && <SlotsPage />}
         {tab === "contracts" && <ContractsPage />}
       </div>
     </div>

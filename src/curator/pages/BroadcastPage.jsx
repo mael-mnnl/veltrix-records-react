@@ -3,7 +3,15 @@ import {
   getAllPlaylists, searchTracks, getTrackById,
   addTrackToPlaylist, removeTrackFromPlaylist, getPlaylistTracks,
 } from "../utils/spotify";
+import { getActiveSlots, updateSlot, subscribeToSlots, unsubscribeSlots } from "../utils/slots";
+import { isSupabaseConfigured } from "../utils/supabase";
 import { Toast, useToast } from "../components/Toast";
+
+const GOLD = "#c9a94e";
+
+function daysUntil(iso) {
+  return Math.max(0, Math.ceil((new Date(iso) - Date.now()) / 86_400_000));
+}
 
 function extractSpotifyTrackId(input) {
   const m = input.match(/open\.spotify\.com\/(?:intl-[a-z]{2}\/)?track\/([A-Za-z0-9]+)/);
@@ -77,6 +85,11 @@ export default function BroadcastPage() {
   const [confirmRemove,  setConfirmRemove]  = useState(false);
   const scanTimer = useRef(null);
 
+  // ── Sold slots awareness ──────────────────────────────────────────────────
+  const [activeSlots,    setActiveSlots]    = useState([]);
+  const [warnModal,      setWarnModal]      = useState(null); // { conflicts:[{slot,playlist,currentTrackAtPosition}], insertPos }
+  const [selRemovals,    setSelRemovals]    = useState(new Set());
+
   const { toast, show } = useToast();
 
   useEffect(() => {
@@ -84,6 +97,13 @@ export default function BroadcastPage() {
       .then(setPlaylists)
       .catch(e => show("Erreur playlists : " + e.message, "error"))
       .finally(() => setLoading(false));
+
+    if (isSupabaseConfigured) {
+      const refresh = () => getActiveSlots().then(setActiveSlots).catch(() => {});
+      refresh();
+      const channel = subscribeToSlots(refresh);
+      return () => unsubscribeSlots(channel);
+    }
   }, []);
 
   // ── Existing: broadcast search ────────────────────────────────────────────
@@ -128,10 +148,54 @@ export default function BroadcastPage() {
   };
   const run = async () => {
     if (!track || selected.size === 0) return;
+
+    // Slot conflict detection (add mode only, position known, Supabase active)
+    if (mode === "add" && isSupabaseConfigured && activeSlots.length > 0) {
+      const resolved = resolvePosition();
+      if (resolved !== undefined) {
+        const insertPos1 = resolved + 1; // 1-based
+        const conflicts = [];
+        for (const plId of selected) {
+          const slotsInPl = activeSlots.filter(s =>
+            (s.playlistIds ?? []).includes(plId) && s.position >= insertPos1
+          );
+          for (const slot of slotsInPl) {
+            const pl = playlists.find(p => p.id === plId);
+            conflicts.push({ slot, playlist: pl ?? { id: plId, name: "(inconnue)" } });
+          }
+        }
+        if (conflicts.length > 0) {
+          setWarnModal({ conflicts, insertPos1 });
+          setSelRemovals(new Set());
+          return;
+        }
+      }
+    }
+
+    await doRun({ preRemovals: new Set(), shiftSlotsInDb: false });
+  };
+
+  const doRun = async ({ preRemovals, shiftSlotsInDb, insertPos1 }) => {
+    setWarnModal(null);
     setWorking(true);
     setProgress({ done: 0, total: selected.size });
     const ids = [...selected];
     let ok = 0, failed = 0;
+
+    // Pre-removals: remove the track at (insertPos1 - 1) in each chosen playlist
+    if (preRemovals && preRemovals.size > 0 && insertPos1 > 1) {
+      const posIdx = insertPos1 - 2; // 0-based index of the track to remove
+      for (const plId of preRemovals) {
+        try {
+          const items = await getPlaylistTracks(plId);
+          const victim = items[posIdx]?.track;
+          if (victim?.uri) await removeTrackFromPlaylist(plId, victim.uri);
+        } catch {}
+        await new Promise(r => setTimeout(r, 300));
+      }
+    }
+
+    // Main action (add or remove track across playlists)
     for (const id of ids) {
       try {
         if (mode === "add") await addTrackToPlaylist(id, track.uri, resolvePosition());
@@ -141,10 +205,22 @@ export default function BroadcastPage() {
       setProgress({ done: ok + failed, total: ids.length });
       await new Promise(r => setTimeout(r, 300));
     }
+
+    // If user chose "Continuer quand même", shift slot positions in DB (+1)
+    if (shiftSlotsInDb && warnModal?.conflicts) {
+      const shifted = new Set();
+      for (const { slot, playlist } of warnModal.conflicts) {
+        if (shifted.has(slot.id)) continue;
+        try { await updateSlot(slot.id, { position: slot.position + 1 }); shifted.add(slot.id); }
+        catch {}
+      }
+    }
+
     const verb = mode === "add" ? "Ajouté à" : "Supprimé de";
     show(`${verb} ${ok}/${ids.length} playlists${failed ? ` (${failed} échoué)` : ""}`,
       ok === ids.length ? "success" : "error");
     setWorking(false); setProgress(null);
+    setSelRemovals(new Set());
   };
   const canRun = track && selected.size > 0 && !working;
 
@@ -701,27 +777,130 @@ export default function BroadcastPage() {
           {loading ? (
             <div style={{ color: "var(--muted)", fontSize: 13 }}>Chargement…</div>
           ) : (
-            playlists.map(pl => (
-              <label key={pl.id} className="check-pl" style={{ opacity: working ? 0.5 : 1 }}>
-                <input
-                  type="checkbox"
-                  checked={selected.has(pl.id)}
-                  onChange={() => !working && toggle(pl.id)}
-                  disabled={working}
-                />
-                {pl.images?.[0]?.url
-                  ? <img src={pl.images[0].url} style={{ width: 34, height: 34, borderRadius: 6, objectFit: "cover", flexShrink: 0 }} />
-                  : <div style={{ width: 34, height: 34, borderRadius: 6, background: "var(--surface2)", flexShrink: 0 }} />
-                }
-                <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pl.name}</div>
-                  <div style={{ fontSize: 11, color: "var(--faint)" }}>{pl.tracks?.total ?? pl.items?.total ?? "?"} tracks</div>
-                </div>
-              </label>
-            ))
+            playlists.map(pl => {
+              const plSlots = activeSlots.filter(s => (s.playlistIds ?? []).includes(pl.id));
+              return (
+                <label key={pl.id} className="check-pl" style={{ opacity: working ? 0.5 : 1 }}>
+                  <input
+                    type="checkbox"
+                    checked={selected.has(pl.id)}
+                    onChange={() => !working && toggle(pl.id)}
+                    disabled={working}
+                  />
+                  {pl.images?.[0]?.url
+                    ? <img src={pl.images[0].url} style={{ width: 34, height: 34, borderRadius: 6, objectFit: "cover", flexShrink: 0 }} />
+                    : <div style={{ width: 34, height: 34, borderRadius: 6, background: "var(--surface2)", flexShrink: 0 }} />
+                  }
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pl.name}</div>
+                    <div style={{ fontSize: 11, color: "var(--faint)" }}>{pl.tracks?.total ?? pl.items?.total ?? "?"} tracks</div>
+                    {plSlots.length > 0 && (
+                      <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
+                        {plSlots.map(s => (
+                          <span key={s.id} title={`${s.trackName} — ${s.buyer}`}
+                            style={{
+                              fontSize: 9, color: GOLD,
+                              background: "rgba(201,169,78,0.08)",
+                              border: "1px solid rgba(201,169,78,0.2)",
+                              padding: "2px 6px", borderRadius: 3,
+                              letterSpacing: ".3px",
+                            }}>
+                            🔒 Pos.{s.position} — {s.buyer} ({daysUntil(s.endDate)}j)
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </label>
+              );
+            })
           )}
         </div>
       </div>
+
+      {/* ═══ Slot conflict modal ═══════════════════════════════════════════ */}
+      {warnModal && (
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 9500,
+            background: "rgba(0,0,0,0.85)", backdropFilter: "blur(4px)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            padding: 20,
+          }}
+          onClick={() => setWarnModal(null)}
+        >
+          <div
+            className="card"
+            style={{ maxWidth: 480, width: "100%", padding: 22, maxHeight: "85vh", overflowY: "auto" }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--red)", letterSpacing: "2px", textTransform: "uppercase", marginBottom: 14 }}>
+              ⚠ Décalage de slots vendus
+            </div>
+
+            <div style={{ fontSize: 13, color: "var(--text)", marginBottom: 16, lineHeight: 1.6 }}>
+              En ajoutant <strong>"{track?.name}"</strong> à la position <strong style={{ color: GOLD }}>#{warnModal.insertPos1}</strong>&nbsp;:
+            </div>
+
+            {/* Group conflicts by playlist */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 14, marginBottom: 18 }}>
+              {Object.entries(
+                warnModal.conflicts.reduce((acc, c) => {
+                  (acc[c.playlist.id] ??= { playlist: c.playlist, slots: [] }).slots.push(c.slot);
+                  return acc;
+                }, {})
+              ).map(([plId, { playlist, slots }]) => (
+                <div key={plId} style={{ borderLeft: `2px solid ${GOLD}`, paddingLeft: 12 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 6 }}>{playlist.name}</div>
+                  {slots.map(slot => (
+                    <div key={slot.id} style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4, lineHeight: 1.5 }}>
+                      "{slot.trackName}" ({slot.buyer}) — passe de <span style={{ color: GOLD }}>#{slot.position}</span> à <span style={{ color: "var(--red)" }}>#{slot.position + 1}</span>
+                      <span style={{ color: "var(--faint)" }}> · {daysUntil(slot.endDate)}j</span>
+                    </div>
+                  ))}
+                  {warnModal.insertPos1 > 1 && (
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6, cursor: "pointer" }}>
+                      <input
+                        type="checkbox"
+                        checked={selRemovals.has(plId)}
+                        onChange={() => setSelRemovals(prev => {
+                          const next = new Set(prev);
+                          next.has(plId) ? next.delete(plId) : next.add(plId);
+                          return next;
+                        })}
+                      />
+                      <span style={{ fontSize: 11, color: "var(--text)" }}>
+                        Supprimer le track en position <strong>#{warnModal.insertPos1 - 1}</strong> pour libérer la place
+                      </span>
+                    </label>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              <button className="btn btn-ghost btn-sm" onClick={() => setWarnModal(null)}>
+                Annuler
+              </button>
+              <button
+                className="btn btn-ghost btn-sm"
+                onClick={() => doRun({ preRemovals: new Set(), shiftSlotsInDb: true, insertPos1: warnModal.insertPos1 })}
+                style={{ color: "var(--red)", borderColor: "rgba(255,85,85,.3)" }}
+              >
+                Continuer quand même
+              </button>
+              <button
+                className="btn btn-primary btn-sm"
+                onClick={() => doRun({ preRemovals: selRemovals, shiftSlotsInDb: false, insertPos1: warnModal.insertPos1 })}
+                disabled={selRemovals.size === 0}
+                style={{ opacity: selRemovals.size === 0 ? 0.45 : 1, padding: "8px 16px" }}
+              >
+                Appliquer et continuer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Toast toast={toast} />
     </div>

@@ -5,7 +5,16 @@ import {
   getMe, createPlaylist, addTracksToPlaylist, getRecommendationsBySeeds,
   uploadPlaylistCover, invalidatePlaylistsCache,
 } from "../utils/spotify";
+import { getActiveSlots, subscribeToSlots, unsubscribeSlots } from "../utils/slots";
+import { isSupabaseConfigured } from "../utils/supabase";
 import { Toast, useToast } from "../components/Toast";
+
+const GOLD = "#c9a94e";
+
+function fmtDateShort(iso) {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
+}
 
 function extractSpotifyTrackId(input) {
   const m = input.match(/open\.spotify\.com\/(?:intl-[a-z]{2}\/)?track\/([A-Za-z0-9]+)/);
@@ -43,6 +52,7 @@ export default function PlaylistsPage() {
   const [userId,          setUserId]          = useState(null);
   const [duplicating,     setDuplicating]     = useState(new Set());
   const [dupProgress,     setDupProgress]     = useState(null); // { playlistId, label }
+  const [activeSlots,     setActiveSlots]     = useState([]);
   const searchTimer = useRef(null);
   const { toast, show } = useToast();
 
@@ -52,6 +62,13 @@ export default function PlaylistsPage() {
       .catch(e => setErrorPl(e.message))
       .finally(() => setLoadingPl(false));
     getMe().then(me => setUserId(me?.id ?? null)).catch(() => {});
+
+    if (isSupabaseConfigured) {
+      const refresh = () => getActiveSlots().then(setActiveSlots).catch(() => {});
+      refresh();
+      const channel = subscribeToSlots(refresh);
+      return () => unsubscribeSlots(channel);
+    }
   }, []);
 
   // ── Load tracks ───────────────────────────────────────────────────────────
@@ -370,6 +387,9 @@ export default function PlaylistsPage() {
               <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
                 {tracks.map((item, i) => {
                   const t = item.track;
+                  const slot = activeSlots.find(s =>
+                    s.trackId === t.id && (s.playlistIds ?? []).includes(selected.id)
+                  );
                   return (
                     <div key={`${t.id}-${i}`} className="track-row">
                       <span style={{ fontSize: 11, color: "var(--faint)", width: 28, textAlign: "right", flexShrink: 0, fontFamily: "var(--mono)" }}>
@@ -384,6 +404,20 @@ export default function PlaylistsPage() {
                           {t.artists?.map(a => a.name).join(", ") ?? ""}{t.album?.name ? ` · ${t.album.name}` : ""}
                         </div>
                       </div>
+                      {slot && (
+                        <span
+                          title={`Acheteur: ${slot.buyer} — Expire le ${fmtDateShort(slot.endDate)}`}
+                          style={{
+                            fontSize: 9, color: GOLD, letterSpacing: "1px",
+                            textTransform: "uppercase", fontWeight: 700,
+                            border: `1px solid rgba(201,169,78,0.3)`,
+                            background: "rgba(201,169,78,0.06)",
+                            padding: "2px 6px", flexShrink: 0,
+                          }}
+                        >
+                          🔒 Vendu
+                        </span>
+                      )}
                       <span style={{ fontSize: 11, color: "var(--faint)", flexShrink: 0, fontFamily: "var(--mono)" }}>
                         {fmt(t.duration_ms)}
                       </span>

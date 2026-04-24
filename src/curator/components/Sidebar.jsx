@@ -4,8 +4,11 @@ const NAV = [
   { id: "radar",     icon: "📡", label: "Radar" },
   { id: "stats",     icon: "📊", label: "Stats" },
   { id: "alerts",    icon: "🔔", label: "Alertes" },
+  { id: "slots",     icon: "🔒", label: "Slots Vendus" },
   { id: "contracts", icon: "📄", label: "Contrats" },
 ];
+
+const GOLD_BADGES = new Set(["slots"]);
 
 export default function Sidebar({ user, tab, setTab, onLogout, onReconnect, badges = {}, scopeWarning }) {
   return (
@@ -16,25 +19,36 @@ export default function Sidebar({ user, tab, setTab, onLogout, onReconnect, badg
         </div>
       </div>
 
-      {NAV.map(n => (
-        <button key={n.id} className={`nav-item ${tab === n.id ? "active" : ""}`} onClick={() => setTab(n.id)}>
-          <span style={{ fontSize: 15, width: 18, textAlign: "center", position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-            {n.icon}
-            {badges[n.id] > 0 && (
-              <span style={{
-                position: "absolute", top: -4, right: -6,
-                background: "var(--red)", color: "#fff",
-                borderRadius: "50%", fontSize: 9, fontWeight: 800,
-                width: 14, height: 14, display: "flex", alignItems: "center", justifyContent: "center",
-                lineHeight: 1,
-              }}>
-                {badges[n.id] > 9 ? "9+" : badges[n.id]}
-              </span>
-            )}
-          </span>
-          {n.label}
-        </button>
-      ))}
+      {NAV.map(n => {
+        const count = badges[n.id] ?? 0;
+        const gold  = GOLD_BADGES.has(n.id);
+        return (
+          <button key={n.id} className={`nav-item ${tab === n.id ? "active" : ""}`} onClick={() => setTab(n.id)}>
+            <span style={{ fontSize: 15, width: 18, textAlign: "center", position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+              {n.icon}
+              {count > 0 && (
+                <span style={{
+                  position: "absolute",
+                  top: gold ? -5 : -4,
+                  right: gold ? -9 : -6,
+                  background: gold ? "#c9a94e" : "var(--red)",
+                  color: gold ? "#000" : "#fff",
+                  borderRadius: "50%",
+                  fontSize: gold ? 10 : 9,
+                  fontWeight: 700,
+                  width: gold ? 18 : 14,
+                  height: gold ? 18 : 14,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  lineHeight: 1,
+                }}>
+                  {count > 9 ? "9+" : count}
+                </span>
+              )}
+            </span>
+            {n.label}
+          </button>
+        );
+      })}
 
       {user && (
         <div style={{ marginTop: "auto", padding: "12px 10px", borderTop: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
