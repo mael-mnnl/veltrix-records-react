@@ -107,10 +107,11 @@ export async function cleanExpiredSlots() {
 }
 
 // ── Realtime subscription ────────────────────────────────────────────────────
+let _channelSeq = 0;
 export function subscribeToSlots(callback) {
   if (!isSupabaseConfigured || !supabase) return null;
   const channel = supabase
-    .channel('slots-changes')
+    .channel(`slots-changes-${++_channelSeq}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'slots' }, callback)
     .subscribe();
   return channel;
