@@ -1,10 +1,36 @@
 import crypto from 'crypto';
 
+// ── Rate limiting sur la vérification (anti-énumération) ─────────────────────
+const store = new Map();
+const MAX   = 30;
+const WIN   = 60 * 1000; // 30 vérifications / minute par IP
+
+function getIp(req) {
+  return (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
+}
+
+function checkVerifyLimit(ip) {
+  const now   = Date.now();
+  const entry = store.get(ip) || { count: 0, firstAt: now };
+  if (now - entry.firstAt > WIN) { entry.count = 0; entry.firstAt = now; }
+  entry.count++;
+  store.set(ip, entry);
+  return entry.count > MAX;
+}
+
+const ALLOWED = ['veltrix-records.com', 'localhost', '127.0.0.1'];
+function allowedOrigin(req) {
+  const origin = req.headers.origin || req.headers.referer || '';
+  return !origin || ALLOWED.some(h => origin.includes(h));
+}
+
+// ── Handler ───────────────────────────────────────────────────────────────────
 export default function handler(req, res) {
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', 'POST');
-    return res.status(405).end();
-  }
+  if (!allowedOrigin(req)) return res.status(403).json({ valid: false });
+  if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return res.status(405).end(); }
+
+  const ip = getIp(req);
+  if (checkVerifyLimit(ip)) return res.status(429).json({ valid: false });
 
   const { token } = req.body ?? {};
   const secret = process.env.CURATOR_TOKEN_SECRET;
@@ -13,7 +39,7 @@ export default function handler(req, res) {
   if (!token)  return res.status(400).json({ valid: false });
 
   const dot = String(token).lastIndexOf('.');
-  if (dot < 1)  return res.status(400).json({ valid: false });
+  if (dot < 1) return res.status(400).json({ valid: false });
 
   const payload  = token.slice(0, dot);
   const sig      = token.slice(dot + 1);
