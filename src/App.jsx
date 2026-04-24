@@ -176,16 +176,7 @@ function App() {
   };
 
   // ── FORM ──
-  const [showSecret, setShowSecret] = useState(false);
-  const [password, setPassword] = useState("");
-  const [unlocked, setUnlocked] = useState(false);
   const [formData, setFormData] = useState({ artist: '', title: '', link: '', contact: '' });
-
-  const checkPassword = (e) => {
-    e.preventDefault();
-    if (password === "VTX2026") setUnlocked(true);
-    else { addToast("ACCESS DENIED", "error"); setPassword(""); }
-  };
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
   const handleSubmit = (e) => {
@@ -622,38 +613,12 @@ function App() {
           </div>
           <div className="footer-bottom">
             <span>© 2025 VELTRIX RECORDS</span>
-            <span className="secret-trigger" onClick={() => setShowSecret(true)}>ACCESS : RESTRICTED</span>
+            <span>ALL RIGHTS RESERVED</span>
             <span>FRANCE</span>
           </div>
         </motion.div>
       </footer>
 
-      {/* SECRET MODAL */}
-      <AnimatePresence>
-        {showSecret && (
-          <motion.div className="secret-modal-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-            <div className="secret-content">
-              {!unlocked ? (
-                <>
-                  <h2>SYSTEM LOCKED</h2><p>ENTER PASSCODE: VTX2026</p>
-                  <form onSubmit={checkPassword} className="minimal-form">
-                    <input type="password" placeholder="XXXXXXX" value={password}
-                      onChange={e => setPassword(e.target.value)}
-                      style={{ textAlign: 'center', letterSpacing: '10px' }} autoFocus />
-                    <button type="submit" className="submit-btn" style={{ marginTop: '20px' }}>DECRYPT</button>
-                  </form>
-                </>
-              ) : (
-                <div className="unlocked-content">
-                  <h2 style={{ color: 'cyan' }}>ACCESS GRANTED</h2>
-                  <a href="#" className="download-link">DOWNLOAD SAMPLES</a>
-                </div>
-              )}
-              <button className="close-btn" onClick={() => { setShowSecret(false); setUnlocked(false); setPassword(""); }}>CLOSE</button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
