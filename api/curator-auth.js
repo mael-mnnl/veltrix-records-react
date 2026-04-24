@@ -1,45 +1,48 @@
 import crypto from 'crypto';
 
-// ── Rate limiting (module-level, persiste sur les instances chaudes) ──────────
-const store = new Map(); // ip -> { count, firstAt, lockedUntil }
-
-const MAX_ATTEMPTS = 5;
-const WINDOW_MS    = 15 * 60 * 1000; // 15 min
-const LOCKOUT_MS   = 15 * 60 * 1000; // 15 min de blocage
+// ── Rate limiting secondaire (le PoW est la protection principale) ────────────
+const store = new Map();
+const MAX_REQ  = 15;
+const WIN_MS   = 60 * 1000; // 15 req/min par IP
 
 function getIp(req) {
   return (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
 }
 
-function check(ip) {
-  const now   = Date.now();
-  const entry = store.get(ip);
-  if (!entry) return { blocked: false };
-  if (entry.lockedUntil && now < entry.lockedUntil) {
-    return { blocked: true, secsLeft: Math.ceil((entry.lockedUntil - now) / 1000) };
-  }
-  if (now - entry.firstAt > WINDOW_MS) { store.delete(ip); return { blocked: false }; }
-  return { blocked: false, count: entry.count };
+function rateLimit(ip) {
+  const now = Date.now();
+  const e   = store.get(ip) || { count: 0, firstAt: now };
+  if (now - e.firstAt > WIN_MS) { e.count = 0; e.firstAt = now; }
+  e.count++;
+  store.set(ip, e);
+  return e.count > MAX_REQ;
 }
 
-function fail(ip) {
-  const now   = Date.now();
-  const entry = store.get(ip) || { count: 0, firstAt: now, lockedUntil: null };
-  if (now - entry.firstAt > WINDOW_MS) { entry.count = 0; entry.firstAt = now; entry.lockedUntil = null; }
-  entry.count++;
-  if (entry.count >= MAX_ATTEMPTS) entry.lockedUntil = now + LOCKOUT_MS;
-  store.set(ip, entry);
-  return entry.count;
-}
-
-function succeed(ip) { store.delete(ip); }
-
-// ── Allowed origins ───────────────────────────────────────────────────────────
+// ── Origin allowlist ──────────────────────────────────────────────────────────
 const ALLOWED = ['veltrix-records.com', 'localhost', '127.0.0.1'];
-
 function allowedOrigin(req) {
-  const origin = req.headers.origin || req.headers.referer || '';
-  return !origin || ALLOWED.some(h => origin.includes(h));
+  const o = req.headers.origin || req.headers.referer || '';
+  return !o || ALLOWED.some(h => o.includes(h));
+}
+
+// ── Proof of Work verification ────────────────────────────────────────────────
+function verifyPoW({ challenge, sig, nonce, difficulty }, secret) {
+  if (!challenge || !sig || nonce === undefined) return 'Champs manquants';
+
+  // 1. Vérifier la signature du challenge
+  const expected = crypto.createHmac('sha256', secret).update(String(challenge)).digest('hex');
+  if (expected !== sig) return 'Challenge invalide';
+
+  // 2. Vérifier l'expiration
+  const expires = parseInt(String(challenge).split('.')[1] || '0');
+  if (Date.now() > expires) return 'Challenge expiré — réessaie';
+
+  // 3. Vérifier la solution PoW
+  const hash   = crypto.createHash('sha256').update(String(challenge) + String(nonce)).digest('hex');
+  const target = '0'.repeat(difficulty ?? 4);
+  if (!hash.startsWith(target)) return 'Solution PoW incorrecte';
+
+  return null; // OK
 }
 
 // ── Handler ───────────────────────────────────────────────────────────────────
@@ -48,40 +51,32 @@ export default function handler(req, res) {
   if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return res.status(405).end(); }
 
   const ip = getIp(req);
-  const rl = check(ip);
+  if (rateLimit(ip)) return res.status(429).json({ error: 'Trop de requêtes — réessaie dans 1 min' });
 
-  if (rl.blocked) {
-    const mins = Math.ceil(rl.secsLeft / 60);
-    return res.status(429).json({ error: `Trop de tentatives — réessaie dans ${mins} min` });
-  }
-
-  const { password } = req.body ?? {};
+  const { password, challenge, sig, nonce } = req.body ?? {};
   const correct = process.env.CURATOR_PASSWORD;
   const secret  = process.env.CURATOR_TOKEN_SECRET;
 
   if (!correct || !secret) return res.status(500).json({ error: 'Service non configuré' });
 
+  // Vérifier le PoW en premier — rejette sans délai si invalide
+  const powErr = verifyPoW({ challenge, sig, nonce, difficulty: 4 }, secret);
+  if (powErr) return res.status(400).json({ error: powErr });
+
+  // Vérifier le mot de passe (timing-safe)
   const pwBuf = Buffer.from(String(password ?? ''), 'utf8');
   const okBuf = Buffer.from(correct, 'utf8');
   const valid  = pwBuf.length === okBuf.length && crypto.timingSafeEqual(pwBuf, okBuf);
 
   if (!valid) {
-    const count     = fail(ip);
-    const remaining = MAX_ATTEMPTS - count;
-    const delay     = count >= 3 ? 2000 : 800;
-    const msg       = remaining <= 0
-      ? 'Compte bloqué 15 min'
-      : remaining <= 2
-        ? `Mot de passe incorrect — ${remaining} tentative${remaining > 1 ? 's' : ''} restante${remaining > 1 ? 's' : ''}`
-        : 'Mot de passe incorrect';
-    return setTimeout(() => res.status(remaining <= 0 ? 429 : 401).json({ error: msg }), delay);
+    // Délai fixe — ne pas révéler d'info via le timing
+    return setTimeout(() => res.status(401).json({ error: 'Mot de passe incorrect' }), 800);
   }
 
-  succeed(ip);
-
+  // Générer le token d'accès (30 jours)
   const exp     = Date.now() + 30 * 24 * 3600 * 1000;
   const payload = Buffer.from(JSON.stringify({ exp })).toString('base64url');
-  const sig     = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
+  const tokSig  = crypto.createHmac('sha256', secret).update(payload).digest('base64url');
 
-  return res.status(200).json({ token: `${payload}.${sig}` });
+  return res.status(200).json({ token: `${payload}.${tokSig}` });
 }
