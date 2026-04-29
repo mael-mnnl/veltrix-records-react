@@ -75,7 +75,9 @@ export default function SlotsPage() {
   const [startDate,  setStartDate]  = useState(todayISO());
   const [endDate,    setEndDate]    = useState(futureISO(30));
   const [creating,   setCreating]   = useState(false);
-  const searchTimer = useRef(null);
+  const searchTimer  = useRef(null);
+  const lastScanRef  = useRef(0);         // timestamp du dernier scan
+  const SCAN_COOLDOWN = 10 * 60 * 1000;  // 10 min entre chaque scan auto
 
   // ── Realtime subscription ──────────────────────────────────────────────────
   useEffect(() => {
@@ -103,31 +105,35 @@ export default function SlotsPage() {
   }
 
   // ── Scan positions (verify slots still at the right place) ────────────────
-  useEffect(() => {
-    if (!activeSlots.length) { setWarnings([]); return; }
-    let cancelled = false;
-    (async () => {
-      setScanningPos(true);
-      const found = [];
-      for (const slot of activeSlots) {
-        for (const plId of slot.playlistIds ?? []) {
-          try {
-            const items = await getPlaylistTracks(plId);
-            const idx   = items.findIndex(it => it.track?.id === slot.trackId);
-            if (idx === -1) continue;
-            const actual = idx + 1;
-            if (actual !== slot.position) {
-              const pl = playlists.find(p => p.id === plId);
-              found.push({ slot, playlist: pl ?? { id: plId, name: "(playlist inconnue)" }, actualPosition: actual });
-            }
-          } catch {}
-          await new Promise(r => setTimeout(r, 300));
-        }
-        if (cancelled) return;
+  async function runScan(slots, force = false) {
+    if (!slots.length) { setWarnings([]); return; }
+    const now = Date.now();
+    if (!force && now - lastScanRef.current < SCAN_COOLDOWN) return;
+    lastScanRef.current = now;
+    setScanningPos(true);
+    const found = [];
+    for (const slot of slots) {
+      for (const plId of slot.playlistIds ?? []) {
+        try {
+          const items = await getPlaylistTracks(plId);
+          const idx   = items.findIndex(it => it.track?.id === slot.trackId);
+          if (idx === -1) continue;
+          const actual = idx + 1;
+          if (actual !== slot.position) {
+            const pl = playlists.find(p => p.id === plId);
+            found.push({ slot, playlist: pl ?? { id: plId, name: "(playlist inconnue)" }, actualPosition: actual });
+          }
+        } catch {}
+        await new Promise(r => setTimeout(r, 300));
       }
-      if (!cancelled) { setWarnings(found); setScanningPos(false); }
-    })();
-    return () => { cancelled = true; };
+    }
+    setWarnings(found);
+    setScanningPos(false);
+  }
+
+  useEffect(() => {
+    runScan(activeSlots);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSlots, playlists]);
 
   // ── Track search ───────────────────────────────────────────────────────────
@@ -426,6 +432,15 @@ export default function SlotsPage() {
           <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: ".06em", textTransform: "uppercase" }}>
             Slots actifs ({activeSlots.length}){scanningPos && <span style={{ color: "var(--faint)", marginLeft: 8, textTransform: "none", letterSpacing: 0 }}>· scan des positions…</span>}
           </div>
+          {activeSlots.length > 0 && (
+            <button
+              className="btn btn-ghost btn-sm"
+              disabled={scanningPos}
+              onClick={() => runScan(activeSlots, true)}
+            >
+              {scanningPos ? "Scan…" : "↻ Scanner positions"}
+            </button>
+          )}
         </div>
 
         {loading && <div style={{ color: "var(--muted)", fontSize: 13 }}>Chargement…</div>}
