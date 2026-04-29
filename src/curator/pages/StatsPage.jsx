@@ -2,6 +2,11 @@ import { useState, useEffect } from "react";
 import { getAllPlaylists, getPlaylistFollowers } from "../utils/spotify";
 import { getCached, setCached, fmtAge, TTL } from "../utils/cache";
 import { Toast, useToast } from "../components/Toast";
+import { getSlots } from "../utils/slots";
+import { computeBuyerStats } from "../utils/buyers";
+import { isSupabaseConfigured } from "../utils/supabase";
+
+const GOLD = "#c9a94e";
 
 // ── Storage keys ──────────────────────────────────────────────────────────────
 const LS_SNAPS    = "curator_stats_v1";       // { [plId]: [{ date, followers }] }
@@ -98,6 +103,29 @@ function makeSorter(key) {
   };
 }
 
+// ── Revenue helpers ───────────────────────────────────────────────────────────
+function computeRevenue(slots) {
+  const withPrice = slots.filter(s => s.price != null && s.price > 0);
+  const total = withPrice.reduce((sum, s) => sum + s.price, 0);
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const byMonth = {};
+  for (const s of withPrice) {
+    const month = (s.createdAt || "").slice(0, 7);
+    if (month) byMonth[month] = (byMonth[month] || 0) + s.price;
+  }
+  const monthRevenue = byMonth[thisMonth] || 0;
+  const buyerStats   = computeBuyerStats(slots);
+  const topBuyer     = buyerStats[0] || null;
+  const sortedMonths = Object.entries(byMonth).sort((a, b) => a[0].localeCompare(b[0]));
+  return { total, monthRevenue, topBuyer, byMonth, sortedMonths, buyerStats };
+}
+
+function fmtMonth(iso) {
+  if (!iso) return "—";
+  const [y, m] = iso.split("-");
+  return new Date(parseInt(y), parseInt(m) - 1).toLocaleDateString("fr-FR", { month: "short", year: "numeric" });
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function StatsPage() {
   const [rows,      setRows]      = useState([]);
@@ -106,6 +134,7 @@ export default function StatsPage() {
   const [progress,  setProgress]  = useState(null);
   const [sortBy,    setSortBy]    = useState("health");
   const [cacheAge,  setCacheAge]  = useState(null); // timestamp of last follower fetch
+  const [revenue,   setRevenue]   = useState(null);
   const { toast, show } = useToast();
 
   // ── Mount: build from localStorage only, zero API calls ─────────────────
@@ -127,6 +156,11 @@ export default function StatsPage() {
       const followCache = loadFollowCache();
       const ages = Object.values(followCache).map(v => v.fetchedAt).filter(Boolean);
       if (ages.length > 0) setCacheAge(Math.max(...ages));
+
+      // Revenue from Supabase
+      if (isSupabaseConfigured) {
+        getSlots().then(slots => setRevenue(computeRevenue(slots))).catch(() => {});
+      }
     } catch {}
   }
 
@@ -296,6 +330,95 @@ export default function StatsPage() {
 
       {rows.length === 0 && !loading && (
         <div style={{ color: "var(--muted)", fontSize: 13 }}>Clique sur "Top 10 followers" pour récupérer les données.</div>
+      )}
+
+      {/* ── Revenue section ── */}
+      {revenue && (
+        <div style={{ marginBottom: 28 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: ".07em", marginBottom: 14, textTransform: "uppercase" }}>
+            Revenus — Slots vendus
+          </div>
+
+          {/* KPI cards */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 20 }}>
+            <div className="card" style={{ padding: "18px 20px" }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", letterSpacing: ".07em", marginBottom: 10 }}>TOTAL ALL TIME</div>
+              <div style={{ fontFamily: "var(--head)", fontSize: 28, fontWeight: 800, letterSpacing: "-1px", color: GOLD }}>
+                {revenue.total.toLocaleString("fr-FR")} €
+              </div>
+              <div style={{ fontSize: 11, color: "var(--faint)", marginTop: 4 }}>
+                {revenue.buyerStats.length} acheteur{revenue.buyerStats.length > 1 ? "s" : ""}
+              </div>
+            </div>
+            <div className="card" style={{ padding: "18px 20px" }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", letterSpacing: ".07em", marginBottom: 10 }}>CE MOIS-CI</div>
+              <div style={{ fontFamily: "var(--head)", fontSize: 28, fontWeight: 800, letterSpacing: "-1px", color: revenue.monthRevenue > 0 ? "var(--green)" : "var(--faint)" }}>
+                {revenue.monthRevenue.toLocaleString("fr-FR")} €
+              </div>
+              <div style={{ fontSize: 11, color: "var(--faint)", marginTop: 4 }}>
+                {new Date().toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}
+              </div>
+            </div>
+            <div className="card" style={{ padding: "18px 20px" }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: "var(--muted)", letterSpacing: ".07em", marginBottom: 10 }}>MEILLEUR BUYER</div>
+              {revenue.topBuyer ? (
+                <>
+                  <div style={{ fontFamily: "var(--head)", fontSize: 18, fontWeight: 800, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {revenue.topBuyer.name}
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--faint)", marginTop: 4 }}>
+                    {revenue.topBuyer.totalSpent.toLocaleString("fr-FR")} € · {revenue.topBuyer.slotCount} slot{revenue.topBuyer.slotCount > 1 ? "s" : ""}
+                  </div>
+                </>
+              ) : (
+                <div style={{ fontFamily: "var(--head)", fontSize: 22, fontWeight: 800, color: "var(--faint)" }}>—</div>
+              )}
+            </div>
+          </div>
+
+          {/* Revenue by month */}
+          {revenue.sortedMonths.length > 0 && (
+            <div className="card" style={{ padding: 20, marginBottom: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: ".07em", marginBottom: 16 }}>PAR MOIS</div>
+              {(() => {
+                const maxVal = Math.max(...revenue.sortedMonths.map(([, v]) => v), 1);
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {revenue.sortedMonths.map(([month, val]) => (
+                      <div key={month} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ width: 90, minWidth: 90, fontSize: 12, color: "var(--muted)" }}>{fmtMonth(month)}</div>
+                        <div style={{ flex: 1, height: 12, background: "var(--surface2)", borderRadius: 4, overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${Math.round((val / maxVal) * 100)}%`, background: GOLD, borderRadius: 4, transition: "width .4s ease" }} />
+                        </div>
+                        <div style={{ width: 70, textAlign: "right", fontSize: 12, fontWeight: 700, color: GOLD }}>
+                          {val.toLocaleString("fr-FR")} €
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+
+          {/* Buyers breakdown */}
+          {revenue.buyerStats.length > 0 && (
+            <div className="card" style={{ overflow: "hidden" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 90px 60px", gap: 10, padding: "10px 16px", borderBottom: "1px solid var(--border)", fontSize: 10, fontWeight: 700, color: "var(--muted)", letterSpacing: ".07em" }}>
+                <div>ACHETEUR</div><div style={{ textAlign: "right" }}>DÉPENSÉ</div><div style={{ textAlign: "right" }}>SLOTS</div>
+              </div>
+              {revenue.buyerStats.map(b => (
+                <div key={b.name} style={{ display: "grid", gridTemplateColumns: "1fr 90px 60px", gap: 10, padding: "8px 16px", borderBottom: "1px solid var(--border)", alignItems: "center" }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.name}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: b.totalSpent > 0 ? GOLD : "var(--faint)", textAlign: "right" }}>
+                    {b.totalSpent > 0 ? `${b.totalSpent.toLocaleString("fr-FR")} €` : "—"}
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--muted)", textAlign: "right" }}>{b.slotCount}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {/* Bar chart top 15 */}

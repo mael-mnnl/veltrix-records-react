@@ -17,10 +17,12 @@ export function mapSlot(row) {
     playlistIds: row.playlist_ids || [],
     position:    row.position,
     buyer:       row.buyer,
+    price:       row.price ?? null,
     startDate:   row.start_date,
     endDate:     row.end_date,
     createdAt:   row.created_at,
     status:      row.status,
+    notifiedAt:  row.notified_at ?? null,
   };
 }
 
@@ -34,9 +36,11 @@ export function mapSlotToDb(slot) {
   if ('playlistIds' in slot) row.playlist_ids = slot.playlistIds;
   if ('position'    in slot) row.position     = slot.position;
   if ('buyer'       in slot) row.buyer        = slot.buyer;
+  if ('price'       in slot) row.price        = slot.price;
   if ('startDate'   in slot) row.start_date   = slot.startDate;
   if ('endDate'     in slot) row.end_date     = slot.endDate;
   if ('status'      in slot) row.status       = slot.status;
+  if ('notifiedAt'  in slot) row.notified_at  = slot.notifiedAt;
   return row;
 }
 
@@ -75,6 +79,15 @@ export async function getExpiredSlots() {
   return (data || []).map(mapSlot);
 }
 
+export async function getSlotEvents(slotId = null) {
+  ensure();
+  let q = supabase.from('slot_events').select('*').order('created_at', { ascending: false });
+  if (slotId) q = q.eq('slot_id', slotId);
+  const { data, error } = await q;
+  if (error) throw error;
+  return data || [];
+}
+
 // ── Writes ───────────────────────────────────────────────────────────────────
 export async function addSlot(slotData) {
   ensure();
@@ -93,6 +106,15 @@ export async function removeSlot(id) {
 export async function updateSlot(id, changes) {
   ensure();
   const { error } = await supabase.from('slots').update(mapSlotToDb(changes)).eq('id', id);
+  if (error) throw error;
+}
+
+export async function markSlotNotified(id) {
+  ensure();
+  const { error } = await supabase
+    .from('slots')
+    .update({ notified_at: new Date().toISOString() })
+    .eq('id', id);
   if (error) throw error;
 }
 
