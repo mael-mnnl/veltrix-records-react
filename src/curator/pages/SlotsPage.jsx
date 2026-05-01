@@ -6,9 +6,7 @@ import {
 import {
   getActiveSlots, getExpiredSlots, addSlot, removeSlot,
   updateSlot, cleanExpiredSlots, subscribeToSlots, unsubscribeSlots,
-  markSlotNotified,
 } from "../utils/slots";
-import { upsertBuyer } from "../utils/buyers";
 import { isSupabaseConfigured, SUPABASE_ERROR } from "../utils/supabase";
 import { Toast, useToast } from "../components/Toast";
 
@@ -71,13 +69,10 @@ export default function SlotsPage() {
   const [selPlIds,   setSelPlIds]   = useState(new Set());
   const [position,   setPosition]   = useState(1);
   const [buyer,      setBuyer]      = useState("");
-  const [price,      setPrice]      = useState("");
   const [startDate,  setStartDate]  = useState(todayISO());
   const [endDate,    setEndDate]    = useState(futureISO(30));
   const [creating,   setCreating]   = useState(false);
-  const searchTimer  = useRef(null);
-  const lastScanRef  = useRef(0);         // timestamp du dernier scan
-  const SCAN_COOLDOWN = 10 * 60 * 1000;  // 10 min entre chaque scan auto
+  const searchTimer = useRef(null);
 
   // ── Realtime subscription ──────────────────────────────────────────────────
   useEffect(() => {
@@ -105,35 +100,31 @@ export default function SlotsPage() {
   }
 
   // ── Scan positions (verify slots still at the right place) ────────────────
-  async function runScan(slots, force = false) {
-    if (!slots.length) { setWarnings([]); return; }
-    const now = Date.now();
-    if (!force && now - lastScanRef.current < SCAN_COOLDOWN) return;
-    lastScanRef.current = now;
-    setScanningPos(true);
-    const found = [];
-    for (const slot of slots) {
-      for (const plId of slot.playlistIds ?? []) {
-        try {
-          const items = await getPlaylistTracks(plId);
-          const idx   = items.findIndex(it => it.track?.id === slot.trackId);
-          if (idx === -1) continue;
-          const actual = idx + 1;
-          if (actual !== slot.position) {
-            const pl = playlists.find(p => p.id === plId);
-            found.push({ slot, playlist: pl ?? { id: plId, name: "(playlist inconnue)" }, actualPosition: actual });
-          }
-        } catch {}
-        await new Promise(r => setTimeout(r, 300));
-      }
-    }
-    setWarnings(found);
-    setScanningPos(false);
-  }
-
   useEffect(() => {
-    runScan(activeSlots);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!activeSlots.length) { setWarnings([]); return; }
+    let cancelled = false;
+    (async () => {
+      setScanningPos(true);
+      const found = [];
+      for (const slot of activeSlots) {
+        for (const plId of slot.playlistIds ?? []) {
+          try {
+            const items = await getPlaylistTracks(plId);
+            const idx   = items.findIndex(it => it.track?.id === slot.trackId);
+            if (idx === -1) continue;
+            const actual = idx + 1;
+            if (actual !== slot.position) {
+              const pl = playlists.find(p => p.id === plId);
+              found.push({ slot, playlist: pl ?? { id: plId, name: "(playlist inconnue)" }, actualPosition: actual });
+            }
+          } catch {}
+          await new Promise(r => setTimeout(r, 300));
+        }
+        if (cancelled) return;
+      }
+      if (!cancelled) { setWarnings(found); setScanningPos(false); }
+    })();
+    return () => { cancelled = true; };
   }, [activeSlots, playlists]);
 
   // ── Track search ───────────────────────────────────────────────────────────
@@ -170,7 +161,6 @@ export default function SlotsPage() {
     if (!canCreate) return;
     setCreating(true);
     try {
-      const parsedPrice = price.trim() ? parseFloat(price.replace(",", ".")) : null;
       await addSlot({
         trackId:     track.id,
         trackName:   track.name,
@@ -180,14 +170,12 @@ export default function SlotsPage() {
         playlistIds: [...selPlIds],
         position,
         buyer:       buyer.trim(),
-        price:       parsedPrice,
         startDate:   new Date(startDate).toISOString(),
         endDate:     new Date(endDate + "T23:59:59").toISOString(),
       });
-      upsertBuyer(buyer.trim()).catch(() => {});
       show(`Slot créé — "${track.name}" pour ${buyer}`, "success");
       setTrack(null); setSearchQ(""); setSearchRes([]);
-      setSelPlIds(new Set()); setPosition(1); setBuyer(""); setPrice("");
+      setSelPlIds(new Set()); setPosition(1); setBuyer("");
       setStartDate(todayISO()); setEndDate(futureISO(30));
     } catch (e) {
       show("Erreur : " + e.message, "error");
@@ -380,22 +368,13 @@ export default function SlotsPage() {
                 </div>
               </div>
 
-              {/* Position + prix + buyer + dates */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: 12 }}>
+              {/* Position + buyer + dates */}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12 }}>
                 <div>
                   <div style={{ fontSize: 10, color: "var(--muted)", letterSpacing: "1px", marginBottom: 4, textTransform: "uppercase" }}>Position</div>
                   <input
                     type="number" min="1" value={position}
                     onChange={e => setPosition(Math.max(1, parseInt(e.target.value) || 1))}
-                    style={{ width: "100%" }}
-                  />
-                </div>
-                <div>
-                  <div style={{ fontSize: 10, color: "var(--muted)", letterSpacing: "1px", marginBottom: 4, textTransform: "uppercase" }}>Prix (€)</div>
-                  <input
-                    type="number" min="0" step="0.01" value={price}
-                    onChange={e => setPrice(e.target.value)}
-                    placeholder="0"
                     style={{ width: "100%" }}
                   />
                 </div>
@@ -432,15 +411,6 @@ export default function SlotsPage() {
           <div style={{ fontSize: 11, fontWeight: 700, color: "var(--muted)", letterSpacing: ".06em", textTransform: "uppercase" }}>
             Slots actifs ({activeSlots.length}){scanningPos && <span style={{ color: "var(--faint)", marginLeft: 8, textTransform: "none", letterSpacing: 0 }}>· scan des positions…</span>}
           </div>
-          {activeSlots.length > 0 && (
-            <button
-              className="btn btn-ghost btn-sm"
-              disabled={scanningPos}
-              onClick={() => runScan(activeSlots, true)}
-            >
-              {scanningPos ? "Scan…" : "↻ Scanner positions"}
-            </button>
-          )}
         </div>
 
         {loading && <div style={{ color: "var(--muted)", fontSize: 13 }}>Chargement…</div>}
@@ -452,10 +422,6 @@ export default function SlotsPage() {
           {activeSlots.map(slot => <SlotCard key={slot.id} slot={slot} playlists={playlists}
             onRemoveOnly={() => handleRemoveSlotOnly(slot)}
             onRemoveAll={() => handleRemoveSlotAndTracks(slot)}
-            onNotify={async () => {
-              try { await markSlotNotified(slot.id); show("Buyer notifié", "success"); loadAll(); }
-              catch (e) { show("Erreur : " + e.message, "error"); }
-            }}
             expired={false}
           />)}
         </div>
@@ -482,7 +448,6 @@ export default function SlotsPage() {
             {expiredSlots.map(slot => <SlotCard key={slot.id} slot={slot} playlists={playlists}
               onRemoveOnly={() => handleRemoveSlotOnly(slot)}
               onRemoveAll={() => handleRemoveSlotAndTracks(slot)}
-              onNotify={null}
               expired
             />)}
           </div>
@@ -495,7 +460,7 @@ export default function SlotsPage() {
 }
 
 // ── Slot card component ─────────────────────────────────────────────────────
-function SlotCard({ slot, playlists, onRemoveOnly, onRemoveAll, onNotify, expired }) {
+function SlotCard({ slot, playlists, onRemoveOnly, onRemoveAll, expired }) {
   const time = timeLeft(slot.endDate);
   const now  = Date.now();
   const start = new Date(slot.startDate).getTime();
@@ -535,23 +500,12 @@ function SlotCard({ slot, playlists, onRemoveOnly, onRemoveAll, onNotify, expire
             </span>
           )}
         </div>
-        <div style={{ fontSize: 11, color: "var(--muted)", display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ fontSize: 11, color: "var(--muted)", display: "flex", gap: 8, flexWrap: "wrap" }}>
           <span>{slot.trackArtist}</span>
           <span style={{ color: "var(--faint)" }}>·</span>
           <span>Acheteur&nbsp;: <span style={{ color: "var(--text)" }}>{slot.buyer}</span></span>
-          {slot.price != null && (
-            <>
-              <span style={{ color: "var(--faint)" }}>·</span>
-              <span style={{ color: GOLD, fontWeight: 700 }}>{slot.price.toLocaleString("fr-FR")} €</span>
-            </>
-          )}
           <span style={{ color: "var(--faint)" }}>·</span>
           <span>Position <span style={{ color: GOLD }}>#{slot.position}</span></span>
-          {slot.notifiedAt && (
-            <span style={{ fontSize: 9, fontWeight: 700, color: "var(--green)", border: "1px solid var(--green)", padding: "1px 5px", letterSpacing: "1.2px" }}>
-              NOTIFIÉ
-            </span>
-          )}
         </div>
 
         {/* Playlists mini covers */}
@@ -590,11 +544,6 @@ function SlotCard({ slot, playlists, onRemoveOnly, onRemoveAll, onNotify, expire
         <button className="btn btn-ghost btn-sm" onClick={onRemoveOnly}>
           Suppr. slot seul
         </button>
-        {onNotify && !slot.notifiedAt && (
-          <button className="btn btn-ghost btn-sm" onClick={onNotify} style={{ color: "var(--green)" }}>
-            Notifier buyer
-          </button>
-        )}
       </div>
     </div>
   );
